@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>LifeFlow — Student Operating System</title>
+  <meta name="theme-color" content="#4f46e5" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="LifeFlow" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <meta name="description" content="LifeFlow is your all-in-one personal operating system: track expenses, study sessions, daily routines, and goals in a unified dashboard." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+          colors: {
+            surface: { 50:'#f8fafc',100:'#f1f5f9',200:'#e2e8f0',700:'#1e293b',800:'#0f172a',900:'#020617' },
+            accent: { DEFAULT:'#6366f1', light:'#818cf8', dark:'#4f46e5', 50:'#eef2ff' },
+            success:'#22c55e', warning:'#f59e0b', danger:'#ef4444',
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="bg-surface-50 dark:bg-surface-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300 min-h-screen">
+
+  <!-- ============ AUTH SCREEN ============ -->
+  <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    <!-- Animated Background -->
+    <div class="auth-bg">
+      <div class="auth-orb auth-orb-1"></div>
+      <div class="auth-orb auth-orb-2"></div>
+      <div class="auth-orb auth-orb-3"></div>
+    </div>
+
+    <div class="w-full max-w-md relative z-10">
+      <!-- Logo -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-accent to-purple-500 shadow-xl shadow-accent/30 mb-4">
+          <i data-lucide="zap" class="w-8 h-8 text-white"></i>
+        </div>
+        <h1 class="text-3xl font-bold tracking-tight">LifeFlow</h1>
+        <p class="text-sm text-gray-400 mt-1">Your Personal Operating System</p>
+      </div>
+
+      <!-- Auth Card -->
+      <div class="auth-card bg-white/80 dark:bg-surface-800/80 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-200/50 dark:border-gray-700/50 p-8">
+        <!-- Toggle Login/Signup -->
+        <div class="flex gap-1 p-1 bg-gray-100 dark:bg-surface-700 rounded-xl mb-6">
+          <button onclick="switchAuthTab('login')" data-auth-tab="login" class="auth-tab active flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200">Log In</button>
+          <button onclick="switchAuthTab('signup')" data-auth-tab="signup" class="auth-tab flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200">Sign Up</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="auth-form space-y-4" onsubmit="handleLogin(event)">
+          <div>
+            <label class="block text-sm font-medium mb-1.5 text-gray-600 dark:text-gray-300">Email</label>
+            <div class="relative">
+              <i data-lucide="mail" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input type="email" id="login-email" required placeholder="you@example.com" autocomplete="email"
+                class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5 text-gray-600 dark:text-gray-300">Password</label>
+            <div class="relative">
+              <i data-lucide="lock" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input type="password" id="login-password" required placeholder="••••••••" minlength="6" autocomplete="current-password"
+                class="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" />
+              <button type="button" onclick="togglePasswordVisibility('login-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                <i data-lucide="eye" class="w-4 h-4 text-gray-400"></i>
+              </button>
+            </div>
+          </div>
+          <div id="login-error" class="hidden text-sm text-danger font-medium bg-red-50 dark:bg-red-500/10 px-4 py-2.5 rounded-xl"></div>
+          <button type="submit" class="w-full py-3 bg-accent hover:bg-accent-dark text-white rounded-xl text-sm font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-accent/25 active:scale-[0.98] flex items-center justify-center gap-2">
+            <i data-lucide="log-in" class="w-4 h-4"></i> Log In
+          </button>
+        </form>
+
+        <!-- Signup Form -->
+        <form id="signup-form" class="auth-form hidden space-y-4" onsubmit="handleSignup(event)">
+          <div>
+            <label class="block text-sm font-medium mb-1.5 text-gray-600 dark:text-gray-300">Full Name</label>
+            <div class="relative">
+              <i data-lucide="user" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input type="text" id="signup-name" required placeholder="Your full name" minlength="2" autocomplete="name"
+                class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5 text-gray-600 dark:text-gray-300">Email</label>
+            <div class="relative">
+              <i data-lucide="mail" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input type="email" id="signup-email" required placeholder="you@example.com" autocomplete="email"
+                class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5 text-gray-600 dark:text-gray-300">Password</label>
+            <div class="relative">
+              <i data-lucide="lock" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input type="password" id="signup-password" required placeholder="Min. 6 characters" minlength="6" autocomplete="new-password"
+                class="w-full pl-11 pr-12 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" />
+              <button type="button" onclick="togglePasswordVisibility('signup-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                <i data-lucide="eye" class="w-4 h-4 text-gray-400"></i>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1.5 text-gray-600 dark:text-gray-300">Confirm Password</label>
+            <div class="relative">
+              <i data-lucide="shield-check" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input type="password" id="signup-confirm" required placeholder="Re-enter password" minlength="6" autocomplete="new-password"
+                class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" />
+            </div>
+          </div>
+          <div id="signup-error" class="hidden text-sm text-danger font-medium bg-red-50 dark:bg-red-500/10 px-4 py-2.5 rounded-xl"></div>
+          <button type="submit" class="w-full py-3 bg-accent hover:bg-accent-dark text-white rounded-xl text-sm font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-accent/25 active:scale-[0.98] flex items-center justify-center gap-2">
+            <i data-lucide="user-plus" class="w-4 h-4"></i> Create Account
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="flex items-center gap-3 mt-6 mb-4">
+          <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+          <span class="text-xs text-gray-400 font-medium">OR</span>
+          <div class="flex-1 h-px bg-gray-200 dark:bg-gray-700"></div>
+        </div>
+
+        <!-- Demo Login -->
+        <button onclick="handleDemoLogin()" class="w-full py-3 bg-gray-100 dark:bg-surface-700 hover:bg-gray-200 dark:hover:bg-surface-700/80 rounded-xl text-sm font-medium transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2 text-gray-600 dark:text-gray-300">
+          <i data-lucide="sparkles" class="w-4 h-4 text-accent"></i> Try Demo Account
+        </button>
+      </div>
+
+      <!-- Theme Toggle on Auth Page -->
+      <div class="text-center mt-6">
+        <button onclick="toggleTheme()" class="inline-flex items-center gap-2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+          <i data-lucide="moon" class="w-3.5 h-3.5 dark:hidden"></i>
+          <i data-lucide="sun" class="w-3.5 h-3.5 hidden dark:block"></i>
+          <span class="dark:hidden">Dark Mode</span>
+          <span class="hidden dark:inline">Light Mode</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ APP SHELL (hidden until login) ============ -->
+  <div id="app" class="flex min-h-screen hidden">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar fixed lg:sticky top-0 left-0 h-screen w-64 bg-white/80 dark:bg-surface-800/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 flex flex-col">
+      <div class="p-6 border-b border-gray-200/50 dark:border-gray-700/50">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center shadow-lg shadow-accent/20">
+            <i data-lucide="zap" class="w-5 h-5 text-white"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight">LifeFlow</h1>
+            <p class="text-[11px] text-gray-400 font-medium tracking-wide uppercase">Personal OS</p>
+          </div>
+        </div>
+      </div>
+      <nav class="flex-1 p-4 space-y-1">
+        <button onclick="navigateTo('dashboard')" data-nav="dashboard" class="nav-link active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200">
+          <i data-lucide="layout-dashboard" class="w-[18px] h-[18px]"></i> Dashboard
+        </button>
+        <button onclick="navigateTo('progress')" data-nav="progress" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200">
+          <i data-lucide="gauge" class="w-[18px] h-[18px]"></i> Progress Hub
+        </button>
+        <button onclick="navigateTo('routine')" data-nav="routine" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200">
+          <i data-lucide="check-circle-2" class="w-[18px] h-[18px]"></i> Daily Routine
+        </button>
+        <button onclick="navigateTo('study')" data-nav="study" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200">
+          <i data-lucide="book-open" class="w-[18px] h-[18px]"></i> Study Tracker
+        </button>
+        <button onclick="navigateTo('attendance')" data-nav="attendance" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200">
+          <i data-lucide="graduation-cap" class="w-[18px] h-[18px]"></i> Class Attendance
+        </button>
+        <button onclick="navigateTo('grades')" data-nav="grades" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200">
+          <i data-lucide="award" class="w-[18px] h-[18px]"></i> SGPA & CGPA
+        </button>
+        <button onclick="navigateTo('achievements')" data-nav="achievements" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200">
+          <i data-lucide="sparkles" class="w-[18px] h-[18px]"></i> Weekly & Badges
+        </button>
+        <button onclick="navigateTo('expense')" data-nav="expense" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200">
+          <i data-lucide="wallet" class="w-[18px] h-[18px]"></i> Money & Finance
+        </button>
+        <button onclick="navigateTo('goals')" data-nav="goals" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200">
+          <i data-lucide="target" class="w-[18px] h-[18px]"></i> Goals & Plans
+        </button>
+        <button onclick="navigateTo('udhar')" data-nav="udhar" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200">
+          <i data-lucide="hand-coins" class="w-[18px] h-[18px]"></i> Friends Lending
+        </button>
+        <button onclick="openMonthlyReportModal()" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-gray-600 dark:text-gray-300 hover:text-accent">
+          <i data-lucide="file-text" class="w-[18px] h-[18px]"></i> Monthly Report
+        </button>
+        <button onclick="openBackupModal()" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-gray-600 dark:text-gray-300 hover:text-accent">
+          <i data-lucide="hard-drive" class="w-[18px] h-[18px]"></i> Backup & Restore
+        </button>
+      </nav>
+      <!-- User Footer (dynamic) -->
+      <div class="p-4 border-t border-gray-200/50 dark:border-gray-700/50">
+        <div class="flex items-center gap-3 px-3 py-2 group">
+          <div id="sidebar-avatar" class="w-8 h-8 rounded-full bg-gradient-to-br from-accent to-pink-500 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-accent/20">A</div>
+          <div class="flex-1 min-w-0">
+            <p id="sidebar-username" class="text-sm font-medium truncate">User</p>
+            <p id="sidebar-email" class="text-xs text-gray-400 truncate">user@email.com</p>
+          </div>
+          <button onclick="handleLogout()" title="Log out" class="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-danger transition-all">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Main -->
+    <main class="flex-1 min-w-0">
+      <header class="sticky top-0 z-20 bg-white/70 dark:bg-surface-800/70 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50">
+        <div class="flex items-center justify-between px-4 lg:px-8 h-16">
+          <div class="flex items-center gap-4">
+            <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
+              <i data-lucide="menu" class="w-5 h-5"></i>
+            </button>
+            <div>
+              <h2 id="page-title" class="text-lg font-semibold">Dashboard</h2>
+              <p id="page-subtitle" class="text-xs text-gray-400 font-medium"></p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <!-- Monthly PDF Report & Email Automation Button -->
+            <button onclick="openMonthlyReportModal()" id="monthly-report-btn" class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-surface-700/80 hover:bg-gray-100 dark:hover:bg-surface-600 transition-all text-xs font-medium cursor-pointer shadow-sm" title="Monthly PDF Report & Email Automation">
+              <i data-lucide="file-text" class="w-3.5 h-3.5 text-accent"></i>
+              <span class="hidden sm:inline text-gray-700 dark:text-gray-200 font-semibold">Report</span>
+            </button>
+            <!-- Full Data Backup & Restore Button -->
+            <button onclick="openBackupModal()" id="backup-header-btn" class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-surface-700/80 hover:bg-gray-100 dark:hover:bg-surface-600 transition-all text-xs font-medium cursor-pointer shadow-sm" title="Full Data Backup & Restore (JSON)">
+              <i data-lucide="hard-drive" class="w-3.5 h-3.5 text-emerald-600"></i>
+              <span class="hidden sm:inline text-gray-700 dark:text-gray-200 font-semibold">Backup</span>
+            </button>
+            <!-- Cloud Database Status & Config Button -->
+            <button onclick="openDbModal()" id="db-status-btn" class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-surface-700/80 hover:bg-gray-100 dark:hover:bg-surface-600 transition-all text-xs font-medium cursor-pointer shadow-sm" title="Cloud Database & Sync">
+              <span id="db-status-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+              <span id="db-status-label" class="hidden sm:inline text-gray-700 dark:text-gray-200 font-semibold">Local DB</span>
+              <i data-lucide="database" class="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 ml-0.5"></i>
+            </button>
+            <button onclick="openQuickAdd()" class="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-dark text-white rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-accent/25 active:scale-95">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span class="hidden sm:inline">Add Entry</span>
+            </button>
+            <button onclick="toggleTheme()" id="theme-toggle" class="p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
+              <i data-lucide="moon" class="w-5 h-5 dark:hidden"></i>
+              <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
+            </button>
+          </div>
+        </div>
+      </header>
+      <div id="page-content" class="p-4 lg:p-8 pb-28 lg:pb-8 max-w-7xl mx-auto"></div>
+    </main>
+
+    
+  </div>
+
+  <!-- Quick Add Modal -->
+  <div id="quick-add-modal" class="modal-overlay fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="modal-content bg-white dark:bg-surface-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-gray-200/50 dark:border-gray-700/50">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Quick Add Entry</h3>
+            <p class="text-xs text-gray-400">Instantly record any activity or transaction</p>
+          </div>
+          <button onclick="closeQuickAdd()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="grid grid-cols-5 gap-1 p-1 bg-gray-100 dark:bg-surface-700 rounded-xl mb-6 text-xs">
+          <button onclick="switchQuickAddTab('income')" data-qa-tab="income" class="qa-tab flex-1 py-2 px-1 rounded-lg font-medium transition-all duration-200 text-center cursor-pointer">💵 Income</button>
+          <button onclick="switchQuickAddTab('expense')" data-qa-tab="expense" class="qa-tab active flex-1 py-2 px-1 rounded-lg font-medium transition-all duration-200 text-center cursor-pointer">💰 Expense</button>
+          <button onclick="switchQuickAddTab('study-log')" data-qa-tab="study-log" class="qa-tab flex-1 py-2 px-1 rounded-lg font-medium transition-all duration-200 text-center cursor-pointer">📖 Study</button>
+          <button onclick="switchQuickAddTab('routine-task')" data-qa-tab="routine-task" class="qa-tab flex-1 py-2 px-1 rounded-lg font-medium transition-all duration-200 text-center cursor-pointer">✅ Routine</button>
+          <button onclick="switchQuickAddTab('study-slot')" data-qa-tab="study-slot" class="qa-tab flex-1 py-2 px-1 rounded-lg font-medium transition-all duration-200 text-center cursor-pointer">📚 Slot</button>
+        </div>
+
+        <!-- Income Form (Money Inflow / Sources) -->
+        <div id="qa-form-income" class="qa-form hidden space-y-4">
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Amount Received (₹)</label>
+            <input type="number" id="qa-income-amount" placeholder="0.00" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-sm font-bold text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-all" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Source / Origin</label>
+              <select id="qa-income-source" class="input-field w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-all">
+                <option value="Parents / Pocket Money">👨‍👩‍👦 Parents / Pocket Money (Family)</option>
+                <option value="Salary / Stipend">💼 Salary / Stipend</option>
+                <option value="Freelance / Projects">💻 Freelance / Projects</option>
+                <option value="Tuition / Teaching">🎓 Tuition / Teaching</option>
+                <option value="Gift / Reward">🎁 Gift / Reward</option>
+                <option value="Udhar Return">🤝 Loan Repayment / Returned</option>
+                <option value="Refund / Cashback">🔄 Refund / Cashback</option>
+                <option value="Investments">📈 Investments</option>
+                <option value="Other">💵 Other</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Payment Mode</label>
+              <select id="qa-income-payment" class="input-field w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-all">
+                <option value="UPI">📱 UPI / PhonePe / GPay</option>
+                <option value="Bank Transfer">🏦 Bank Transfer</option>
+                <option value="Cash">💵 Cash in Hand</option>
+                <option value="Wallet">👛 Wallet</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Description / Note</label>
+            <input type="text" id="qa-income-desc" placeholder="e.g., Monthly allowance from parents, freelance fee" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-all" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Date Received</label>
+            <input type="date" id="qa-income-date" class="input-field w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-all" />
+          </div>
+          <button onclick="saveIncome()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-emerald-600/25 active:scale-[0.98] cursor-pointer flex items-center justify-center gap-1.5">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>+ Save Income Entry</span>
+          </button>
+        </div>
+
+        <!-- Expense Form -->
+        <div id="qa-form-expense" class="qa-form space-y-4">
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Amount (₹)</label><input type="number" id="qa-expense-amount" placeholder="0.00" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-sm focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Category</label><select id="qa-expense-category" class="input-field w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all"><option value="Food">🍔 Food</option><option value="Study Material">📚 Study Material</option><option value="Travel">🚗 Travel</option><option value="Entertainment">🎬 Entertainment</option><option value="Bills">📄 Bills</option></select></div>
+            <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Payment</label><select id="qa-expense-payment" class="input-field w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all"><option value="UPI">UPI</option><option value="Cash">Cash</option><option value="Card">Card</option><option value="Net Banking">Net Banking</option></select></div>
+          </div>
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Description</label><input type="text" id="qa-expense-desc" placeholder="What was it for?" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Date</label><input type="date" id="qa-expense-date" class="input-field w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+          <button onclick="saveExpense()" class="w-full py-3 bg-accent hover:bg-accent-dark text-white rounded-xl text-xs font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-accent/25 active:scale-[0.98] cursor-pointer">Save Expense</button>
+        </div>
+
+        <!-- Study Form -->
+        <div id="qa-form-study-log" class="qa-form hidden space-y-4">
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Subject</label><input type="text" id="qa-study-subject" placeholder="e.g., Mathematics" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Topic</label><input type="text" id="qa-study-topic" placeholder="e.g., Calculus Integration" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Duration (min)</label><input type="number" id="qa-study-duration" placeholder="25" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+            <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Date</label><input type="date" id="qa-study-date" class="input-field w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+          </div>
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Notes</label><textarea id="qa-study-notes" rows="3" placeholder="Key takeaways..." class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all resize-none"></textarea></div>
+          <button onclick="saveStudySession()" class="w-full py-3 bg-accent hover:bg-accent-dark text-white rounded-xl text-xs font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-accent/25 active:scale-[0.98] cursor-pointer">Log Study Session</button>
+        </div>
+
+        <!-- Routine Form -->
+        <div id="qa-form-routine-task" class="qa-form hidden space-y-4">
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Task Name</label><input type="text" id="qa-routine-name" placeholder="e.g., Morning walk" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Time of Day</label><select id="qa-routine-time" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all"><option value="Morning">🌅 Morning</option><option value="Afternoon">☀️ Afternoon</option><option value="Evening">🌆 Evening</option><option value="Night">🌙 Night</option></select></div>
+          <button onclick="saveRoutineTask()" class="w-full py-3 bg-accent hover:bg-accent-dark text-white rounded-xl text-xs font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-accent/25 active:scale-[0.98] cursor-pointer">Add to Routine</button>
+        </div>
+
+        <!-- Study Slot Form in Quick Add -->
+        <div id="qa-form-study-slot" class="qa-form hidden space-y-4">
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Subject</label><input type="text" id="qa-slot-subject" placeholder="e.g., Mathematics" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Topic / Study Goal</label><input type="text" id="qa-slot-topic" placeholder="e.g., Linear Algebra practice problem set" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Time Slot</label><input type="text" id="qa-slot-time" placeholder="06:30 AM - 08:00 AM" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+            <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Duration (min)</label><input type="number" id="qa-slot-duration" placeholder="90" value="60" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all" /></div>
+          </div>
+          <div><label class="block text-xs font-semibold mb-1 text-gray-600 dark:text-gray-300">Time of Day (Period)</label><select id="qa-slot-period" class="input-field w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none transition-all"><option value="Morning">🌅 Morning</option><option value="Afternoon">☀️ Afternoon</option><option value="Evening">🌆 Evening</option><option value="Night">🌙 Night</option></select></div>
+          <button onclick="saveQuickStudySlot()" class="w-full py-3 bg-accent hover:bg-accent-dark text-white rounded-xl text-xs font-semibold transition-all duration-200 hover:shadow-lg hover:shadow-accent/25 active:scale-[0.98] cursor-pointer">Add to Study Routine</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DATABASE / SUPABASE CLOUD SYNC MODAL ============ -->
+  <div id="db-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white dark:bg-surface-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 space-y-5 animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
+            <i data-lucide="database" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-gray-900 dark:text-white flex items-center gap-2">
+              Cloud Database
+              <span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Supabase</span>
+            </h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Sync all your tracker data across devices with real-time cloud storage</p>
+          </div>
+        </div>
+        <button onclick="closeDbModal()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-700 text-gray-400 hover:text-gray-600 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Live Status Badge -->
+      <div id="db-modal-status-card" class="p-3.5 rounded-xl border flex items-center justify-between text-xs transition-all bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40 text-amber-800 dark:text-amber-300">
+        <div class="flex items-center gap-2.5">
+          <span id="db-modal-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+          <div>
+            <span id="db-modal-status-text" class="font-semibold">Local Storage Mode</span>
+            <p id="db-modal-status-sub" class="text-[11px] opacity-80">Connect Supabase to enable cloud backup & multi-device sync</p>
+          </div>
+        </div>
+        <button onclick="refreshDbStatusUI()" class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" title="Refresh Status">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+      <!-- Credentials Form -->
+      <div class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 flex items-center justify-between">
+            <span>Supabase Project URL</span>
+            <a href="https://supabase.com/dashboard" target="_blank" class="text-[11px] text-accent hover:underline flex items-center gap-1 font-normal">
+              Find in Supabase Dashboard <i data-lucide="external-link" class="w-3 h-3"></i>
+            </a>
+          </label>
+          <input type="text" id="supabase-url-input" placeholder="https://your-project.supabase.co" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-all" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Supabase Anon Public API Key</label>
+          <input type="password" id="supabase-key-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none transition-all font-mono" />
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <button onclick="handleTestDbConnection()" id="btn-test-db" class="flex-1 py-2.5 px-3 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-surface-700 text-xs font-semibold transition-all flex items-center justify-center gap-1.5">
+            <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+            <span>Test Connection</span>
+          </button>
+          <button onclick="handleSaveDbConnection()" id="btn-save-db" class="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-sm flex items-center justify-center gap-1.5">
+            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+            <span>Save & Connect</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Cloud Sync Actions -->
+      <div class="pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Manual Data Sync</h4>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="handlePushLocalToCloud()" id="btn-push-cloud" class="py-2 px-3 rounded-xl bg-gray-100 dark:bg-surface-700 hover:bg-gray-200 dark:hover:bg-surface-600 text-xs font-medium transition-all flex items-center justify-center gap-1.5 text-gray-700 dark:text-gray-200">
+            <i data-lucide="cloud-upload" class="w-3.5 h-3.5 text-accent"></i>
+            <span>Push Local to Cloud</span>
+          </button>
+          <button onclick="handlePullCloudToLocal()" id="btn-pull-cloud" class="py-2 px-3 rounded-xl bg-gray-100 dark:bg-surface-700 hover:bg-gray-200 dark:hover:bg-surface-600 text-xs font-medium transition-all flex items-center justify-center gap-1.5 text-gray-700 dark:text-gray-200">
+            <i data-lucide="cloud-download" class="w-3.5 h-3.5 text-emerald-500"></i>
+            <span>Pull Cloud to Device</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 1-Click SQL Setup Dropdown -->
+      <div class="pt-3 border-t border-gray-100 dark:border-gray-700">
+        <details class="group text-xs">
+          <summary class="cursor-pointer font-semibold text-gray-700 dark:text-gray-300 flex items-center justify-between py-1 select-none">
+            <span class="flex items-center gap-1.5">
+              <i data-lucide="code-2" class="w-3.5 h-3.5 text-accent"></i>
+              1-Click Supabase Table SQL Script
+            </span>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform group-open:rotate-180 text-gray-400"></i>
+          </summary>
+          <div class="mt-2.5 p-3 rounded-xl bg-gray-900 text-gray-200 font-mono text-[11px] relative space-y-2">
+            <div class="flex items-center justify-between text-gray-400 border-b border-gray-800 pb-1.5">
+              <span>SQL Editor Query</span>
+              <button onclick="copySupabaseSql()" class="px-2 py-0.5 bg-accent/20 hover:bg-accent/40 text-accent rounded text-[10px] font-sans font-medium flex items-center gap-1 transition-colors">
+                <i data-lucide="copy" class="w-3 h-3"></i>
+                <span id="copy-sql-btn-text">Copy SQL</span>
+              </button>
+            </div>
+            <pre class="overflow-x-auto whitespace-pre leading-relaxed text-gray-300 text-[10.5px]">CREATE TABLE IF NOT EXISTS lifeflow_sync (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE lifeflow_sync ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anon read write on lifeflow_sync"
+  ON lifeflow_sync FOR ALL TO anon, authenticated
+  USING (true) WITH CHECK (true);</pre>
+          </div>
+        </details>
+      </div>
+
+      <!-- Disconnect Option -->
+      <div class="pt-1 flex justify-end">
+        <button onclick="handleDisconnectSupabase()" class="text-[11px] text-gray-400 hover:text-red-500 transition-colors">
+          Disconnect Supabase & stay offline
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ADD STUDY SLOT MODAL ============ -->
+  <div id="study-slot-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white dark:bg-surface-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 space-y-4 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
+        <h3 class="font-bold text-base text-gray-900 dark:text-white flex items-center gap-2">
+          <span>📚 Add Study Routine Slot</span>
+        </h3>
+        <button onclick="closeAddStudySlotModal()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-700 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="space-y-3.5 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Subject</label>
+          <input type="text" id="slot-modal-subject" placeholder="e.g., Mathematics, Computer Science, Biology" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Topic / Study Goal</label>
+          <input type="text" id="slot-modal-topic" placeholder="e.g., Linear Algebra practice problem set" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Time Slot</label>
+            <input type="text" id="slot-modal-time" placeholder="06:30 AM - 08:00 AM" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Duration (min)</label>
+            <input type="number" id="slot-modal-duration" placeholder="90" value="60" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Period</label>
+          <select id="slot-modal-period" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none">
+            <option value="Morning">🌅 Morning</option>
+            <option value="Afternoon">☀️ Afternoon</option>
+            <option value="Evening">🌆 Evening</option>
+            <option value="Night">🌙 Night</option>
+          </select>
+        </div>
+        <button onclick="saveModalStudySlot()" class="w-full py-3 bg-accent hover:bg-accent-dark text-white rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer">
+          Add to Routine
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ADD UDHAR MODAL ============ -->
+  <div id="add-udhar-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white dark:bg-surface-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 space-y-4 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <i data-lucide="hand-coins" class="w-4 h-4"></i>
+          </div>
+          <h3 class="font-bold text-base text-gray-900 dark:text-white">New Lending / Borrowing Record</h3>
+        </div>
+        <button onclick="closeAddUdharModal()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-700 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs">
+        <!-- Transaction Type Toggle -->
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1.5">Transaction Type</label>
+          <div class="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-surface-700 rounded-xl">
+            <button type="button" onclick="setUdharModalType('gave')" id="modal-type-gave-btn" class="py-2 px-3 rounded-lg font-bold text-xs transition-all bg-emerald-600 text-white shadow-xs cursor-pointer">
+              🟢 Gave (Will Get)
+            </button>
+            <button type="button" onclick="setUdharModalType('took')" id="modal-type-took-btn" class="py-2 px-3 rounded-lg font-bold text-xs transition-all text-gray-600 dark:text-gray-300 hover:text-gray-900 cursor-pointer">
+              🔴 Took (Will Pay)
+            </button>
+          </div>
+          <input type="hidden" id="udhar-type-input" value="gave" />
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Friend's Name</label>
+          <input type="text" id="udhar-friend-name" placeholder="e.g., Rahul, Amit, Priya" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Amount (₹)</label>
+          <input type="number" id="udhar-amount" placeholder="0.00" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Reason / Note</label>
+          <input type="text" id="udhar-note" placeholder="e.g., Canteen lunch split, Movie tickets" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Date</label>
+            <input type="date" id="udhar-date" class="input-field w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Expected Return Date</label>
+            <input type="date" id="udhar-due-date" class="input-field w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+          </div>
+        </div>
+
+        <button onclick="saveUdharFromModal()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all shadow-sm active:scale-95 cursor-pointer">
+          Save Record
+        </button>
+      </div>
+    </div>
+  </div>
+
+    <!-- ============ ADD INCOME MODAL (MONEY INFLOW) ============ -->
+  <div id="add-income-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white dark:bg-surface-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 space-y-4 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-gray-900 dark:text-white">Record Money Inflow (Income)</h3>
+            <p class="text-[11px] text-gray-400">Track where your money came from (Sources & Origins)</p>
+          </div>
+        </div>
+        <button onclick="closeAddIncomeModal()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-700 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs">
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Amount (₹)</label>
+          <input type="number" id="income-modal-amount" placeholder="0.00" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-sm font-bold text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none" />
+          <!-- Quick Amount Chips -->
+          <div class="flex flex-wrap gap-1.5 mt-2">
+            <button type="button" onclick="setIncomePreset(500)" class="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-surface-700 text-[11px] text-gray-600 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 cursor-pointer">+₹500</button>
+            <button type="button" onclick="setIncomePreset(1000)" class="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-surface-700 text-[11px] text-gray-600 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 cursor-pointer">+₹1,000</button>
+            <button type="button" onclick="setIncomePreset(2000)" class="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-surface-700 text-[11px] text-gray-600 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 cursor-pointer">+₹2,000</button>
+            <button type="button" onclick="setIncomePreset(5000)" class="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-surface-700 text-[11px] text-gray-600 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 cursor-pointer">+₹5,000</button>
+            <button type="button" onclick="setIncomePreset(10000)" class="px-2 py-0.5 rounded-md bg-gray-100 dark:bg-surface-700 text-[11px] text-gray-600 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-600 cursor-pointer">+₹10,000</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Source / Origin</label>
+            <select id="income-modal-source" class="input-field w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none">
+              <option value="Parents / Pocket Money">👨‍👩‍👦 Parents / Pocket Money (Family)</option>
+              <option value="Salary / Stipend">💼 Salary / Stipend</option>
+              <option value="Freelance / Projects">💻 Freelance / Projects</option>
+              <option value="Tuition / Teaching">🎓 Tuition / Coaching Fee</option>
+              <option value="Gift / Reward">🎁 Gift / Bonus</option>
+              <option value="Udhar Return">🤝 Loan Repayment / Returned</option>
+              <option value="Refund / Cashback">🔄 Refund / Cashback</option>
+              <option value="Investments">📈 Investments / Returns</option>
+              <option value="Other">💵 Other</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Received Via</label>
+            <select id="income-modal-payment" class="input-field w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none">
+              <option value="UPI">📱 UPI / PhonePe / GPay</option>
+              <option value="Bank Transfer">🏦 Bank Transfer</option>
+              <option value="Cash">💵 Cash in Hand</option>
+              <option value="Wallet">👛 Wallet</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Description / Note</label>
+          <input type="text" id="income-modal-desc" placeholder="e.g., Monthly pocket money from parents, UI design gig payment" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none" />
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Date Received</label>
+          <input type="date" id="income-modal-date" class="input-field w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 outline-none" />
+        </div>
+
+        <button onclick="saveIncomeFromModal()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all shadow-sm active:scale-95 cursor-pointer flex items-center justify-center gap-1.5">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Save Income Record</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MONTHLY REPORT & EMAIL AUTOMATION MODAL ============ -->
+  <div id="monthly-report-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white dark:bg-surface-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 space-y-5 animate-in fade-in zoom-in duration-200 max-h-[92vh] overflow-y-auto">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center font-bold">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-gray-900 dark:text-white flex items-center gap-2">
+              Monthly PDF Report & Email Automation
+            </h3>
+            <p class="text-xs text-gray-400">Extract complete tracker summary & automate month-end email dispatch</p>
+          </div>
+        </div>
+        <button onclick="closeMonthlyReportModal()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-700 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Segmented Navigation Tabs -->
+      <div class="flex items-center gap-1 p-1 bg-gray-100 dark:bg-surface-700 rounded-xl text-xs">
+        <button type="button" onclick="switchReportTab('preview')" id="report-tab-preview-btn" class="flex-1 py-2 px-3 rounded-lg font-bold transition-all bg-accent text-white shadow-xs cursor-pointer text-center">
+          📄 Preview & Download PDF
+        </button>
+        <button type="button" onclick="switchReportTab('settings')" id="report-tab-settings-btn" class="flex-1 py-2 px-3 rounded-lg font-bold transition-all text-gray-600 dark:text-gray-300 hover:text-gray-900 cursor-pointer text-center">
+          ⚙️ Gmail Automation Settings
+        </button>
+      </div>
+
+      <!-- Tab 1: Preview & Download PDF -->
+      <div id="report-tab-preview" class="space-y-4">
+        <!-- Month Selector & Actions -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-gray-50 dark:bg-surface-700/50 border border-gray-200/60 dark:border-surface-600">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-semibold text-gray-600 dark:text-gray-300">Select Month:</label>
+            <select id="report-month-select" onchange="updateReportPreview()" class="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-700 text-xs font-bold outline-none cursor-pointer">
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="downloadReportPDF()" id="download-pdf-btn" class="px-3.5 py-1.5 bg-accent hover:bg-accent-dark text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> Download PDF
+            </button>
+            <button onclick="sendEmailReportNow()" id="send-email-now-btn" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="send" class="w-3.5 h-3.5"></i> Send to Email
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Report Preview Container -->
+        <div id="report-preview-container" class="p-5 rounded-2xl border border-gray-200 dark:border-surface-600 bg-white dark:bg-surface-800 space-y-4 text-xs">
+          <!-- Dynamically populated preview -->
+        </div>
+      </div>
+
+      <!-- Tab 2: Gmail Automation Settings -->
+      <div id="report-tab-settings" class="space-y-4 hidden text-xs">
+        <div class="p-3.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 space-y-1">
+          <div class="flex items-center gap-2 text-indigo-700 dark:text-indigo-300 font-bold">
+            <i data-lucide="zap" class="w-4 h-4 text-accent"></i>
+            <span>Automated Month-End Dispatch</span>
+          </div>
+          <p class="text-indigo-600/90 dark:text-indigo-400">
+            LifeFlow will automatically extract your total month tracker into a PDF and email it to you on the last day of every month at 11:55 PM.
+          </p>
+        </div>
+
+        <!-- Toggle Auto-Send -->
+        <div class="flex items-center justify-between p-3.5 rounded-xl bg-gray-50 dark:bg-surface-700/50 border border-gray-200/60 dark:border-surface-600">
+          <div>
+            <span class="font-bold text-gray-900 dark:text-white">Enable Month-End Email Automation</span>
+            <p class="text-[11px] text-gray-400">Automatically send monthly report to your email</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="report-auto-send-toggle" class="sr-only peer" checked>
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-surface-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+          </label>
+        </div>
+
+        <!-- Email Configuration Fields -->
+        <div class="space-y-3">
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Your Receiving Email (Where report is sent)</label>
+            <input type="email" id="report-receiver-email" placeholder="youremail@example.com" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Gmail Sender Address</label>
+              <input type="email" id="report-gmail-user" placeholder="yourgmail@gmail.com" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+            </div>
+            <div>
+              <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Google App Password (16 letters)</label>
+              <input type="password" id="report-gmail-password" placeholder="abcd efgh ijkl mnop" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-gray-50 dark:bg-surface-700/50 text-[11px] text-gray-500 dark:text-gray-400 space-y-1">
+            <p class="font-semibold text-gray-700 dark:text-gray-300">💡 How to get a Google App Password in 1 minute:</p>
+            <ol class="list-decimal list-inside space-y-0.5">
+              <li>Open your Google Account Settings (<a href="https://myaccount.google.com/apppasswords" target="_blank" class="text-accent underline font-semibold">myaccount.google.com/apppasswords</a>).</li>
+              <li>Make sure 2-Step Verification is turned ON.</li>
+              <li>Create an App Password named "LifeFlow" and paste the 16-letter code above.</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex flex-col sm:flex-row gap-2 pt-2">
+          <button onclick="saveReportSettings()" class="flex-1 py-2.5 bg-accent hover:bg-accent-dark text-white rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer">
+            Save Email Settings
+          </button>
+          <button onclick="testEmailConnection()" id="test-email-btn" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span>Send Test Email Report</span>
+          </button>
+        </div>
+
+        <!-- In-Browser Automatic Trigger Info & Instant Test -->
+        <div class="pt-3 border-t border-gray-100 dark:border-surface-700 space-y-3">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="font-semibold text-gray-800 dark:text-gray-200">Automatic Trigger When Opening Website</span>
+              <p class="text-[11px] text-gray-400">Zero Mac changes required. The website automatically extracts data, generates PDF & sends email when opened at month-end.</p>
+            </div>
+            <button onclick="triggerWebsiteAutoSend(true)" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-1.5">
+              <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+              <span>Test Auto-Send Now</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ ADD CLASS / SUBJECT MODAL ============ -->
+  <div id="add-subject-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white dark:bg-surface-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 space-y-4 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center font-bold">
+            <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-gray-900 dark:text-white">Add Course / Subject</h3>
+            <p class="text-[11px] text-gray-400">Track class presence & calculate bunk eligibility</p>
+          </div>
+        </div>
+        <button onclick="closeAddSubjectModal()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-700 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs">
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Subject / Course Name *</label>
+          <input type="text" id="subject-modal-name" placeholder="e.g., Computer Networks, Engineering Physics" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Course Code</label>
+            <input type="text" id="subject-modal-code" placeholder="e.g., CS301" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none uppercase font-mono" />
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Faculty / Professor</label>
+            <input type="text" id="subject-modal-teacher" placeholder="e.g., Dr. Sharma" class="input-field w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs focus:ring-2 focus:ring-accent/30 focus:border-accent outline-none" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Minimum Attendance Threshold (%)</label>
+          <div class="flex items-center gap-2">
+            <input type="number" id="subject-modal-min-pct" value="75" min="1" max="100" class="input-field w-24 px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs font-bold text-accent outline-none" />
+            <span class="text-[11px] text-gray-400">Mandatory threshold for exam eligibility (usually 75% or 80%)</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Classes Attended So Far</label>
+            <input type="number" id="subject-modal-attended" placeholder="0" value="0" min="0" class="input-field w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs font-bold text-emerald-600 outline-none" />
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Total Classes Held So Far</label>
+            <input type="number" id="subject-modal-total" placeholder="0" value="0" min="0" class="input-field w-full px-3.5 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-surface-700 text-xs font-bold outline-none" />
+          </div>
+        </div>
+
+        <button onclick="handleSaveSubjectFromModal()" class="w-full py-3 bg-accent hover:bg-accent-dark text-white rounded-xl text-xs font-semibold transition-all shadow-sm active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 mt-2">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Save Course & Start Tracking</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-6 right-6 z-[60] space-y-2"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://smtpjs.com/v3/smtp.js"></script>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+
+  <!-- ============ FULL DATA BACKUP & RESTORE MODAL ============ -->
+  <div id="backup-restore-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white dark:bg-surface-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 space-y-5 animate-in fade-in zoom-in duration-200">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+            <i data-lucide="hard-drive" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-gray-900 dark:text-white">Data Vault — Backup & Restore</h3>
+            <p class="text-[11px] text-gray-400">Never lose your study, attendance, and finance data</p>
+          </div>
+        </div>
+        <button onclick="closeBackupModal()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-700 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Segmented Tab Switcher -->
+      <div class="flex items-center p-1 bg-gray-100 dark:bg-surface-700/60 rounded-xl text-xs font-semibold">
+        <button onclick="switchBackupTab('export')" id="tab-btn-backup-export" class="flex-1 py-1.5 rounded-lg transition-all text-center bg-white dark:bg-surface-800 text-gray-900 dark:text-white shadow-xs cursor-pointer">
+          Export Backup
+        </button>
+        <button onclick="switchBackupTab('import')" id="tab-btn-backup-import" class="flex-1 py-1.5 rounded-lg transition-all text-center text-gray-500 dark:text-gray-400 hover:text-gray-900 cursor-pointer">
+          Import / Restore
+        </button>
+        <button onclick="switchBackupTab('reset')" id="tab-btn-backup-reset" class="flex-1 py-1.5 rounded-lg transition-all text-center text-gray-500 dark:text-gray-400 hover:text-rose-500 cursor-pointer">
+          Factory Reset
+        </button>
+      </div>
+
+      <!-- Tab 1: Export Backup Content -->
+      <div id="backup-tab-export" class="space-y-4 text-xs">
+        <div class="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 space-y-2">
+          <div class="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
+            <span>Complete Snapshot Included</span>
+          </div>
+          <p class="text-gray-600 dark:text-gray-300 leading-relaxed text-[11px]">
+            Your backup includes all class attendance records, Pomodoro study sessions, money & finance transactions, goals, friends lending/debt, and routine streaks in a single portable JSON file.
+          </p>
+        </div>
+
+        <div id="backup-export-stats" class="grid grid-cols-3 gap-2 text-center">
+          <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-surface-700/50 border border-gray-200 dark:border-surface-600">
+            <span class="text-[10px] text-gray-400 uppercase font-bold">Courses</span>
+            <p id="export-courses-count" class="text-base font-black text-gray-900 dark:text-white mt-0.5">5</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-surface-700/50 border border-gray-200 dark:border-surface-600">
+            <span class="text-[10px] text-gray-400 uppercase font-bold">Expenses</span>
+            <p id="export-expenses-count" class="text-base font-black text-emerald-600 mt-0.5">--</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-surface-700/50 border border-gray-200 dark:border-surface-600">
+            <span class="text-[10px] text-gray-400 uppercase font-bold">Study Sessions</span>
+            <p id="export-study-count" class="text-base font-black text-indigo-600 mt-0.5">--</p>
+          </div>
+        </div>
+
+        <button onclick="handleExportBackup()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-98 cursor-pointer flex items-center justify-center gap-2">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span>Download LifeFlow Backup (.JSON)</span>
+        </button>
+      </div>
+
+      <!-- Tab 2: Import Backup Content -->
+      <div id="backup-tab-import" class="space-y-4 text-xs hidden">
+        <div class="border-2 border-dashed border-gray-200 dark:border-surface-600 hover:border-accent rounded-2xl p-6 text-center transition-all bg-gray-50/50 dark:bg-surface-700/30 cursor-pointer" onclick="document.getElementById('backup-file-input').click()">
+          <input type="file" id="backup-file-input" accept=".json,application/json" class="hidden" onchange="handleImportBackupFile(this)">
+          <div class="w-12 h-12 mx-auto rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-accent flex items-center justify-center mb-2">
+            <i data-lucide="cloud-upload" class="w-6 h-6"></i>
+          </div>
+          <p class="font-bold text-gray-800 dark:text-white">Click to choose or drop backup JSON file</p>
+          <p class="text-[11px] text-gray-400 mt-1">Accepts LifeFlow backup files (.json)</p>
+        </div>
+
+        <!-- Preview of selected file -->
+        <div id="backup-preview-box" class="p-3.5 rounded-xl bg-gray-50 dark:bg-surface-700 border border-gray-200 dark:border-surface-600 space-y-2 hidden">
+          <div class="flex items-center justify-between font-bold text-gray-900 dark:text-white">
+            <span id="preview-filename" class="truncate max-w-[200px]">backup.json</span>
+            <span id="preview-date" class="text-[10px] text-gray-400"></span>
+          </div>
+          <p id="preview-summary-text" class="text-[11px] text-gray-500 dark:text-gray-300"></p>
+
+          <div class="pt-2 grid grid-cols-2 gap-2">
+            <button onclick="confirmImportBackup('merge')" class="py-2.5 px-3 bg-accent hover:bg-accent-dark text-white rounded-xl font-bold transition-all shadow-xs cursor-pointer">
+              Merge with Existing
+            </button>
+            <button onclick="confirmImportBackup('overwrite')" class="py-2.5 px-3 border border-rose-300 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl font-bold transition-all cursor-pointer">
+              Full Overwrite
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Reset Content -->
+      <div id="backup-tab-reset" class="space-y-4 text-xs hidden">
+        <div class="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800/40 space-y-2">
+          <div class="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-bold">
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+            <span>Warning: Destructive Action</span>
+          </div>
+          <p class="text-rose-800 dark:text-rose-300 text-[11px] leading-relaxed">
+            This will reset all your attendance logs, routine history, study sessions, and financial records back to clean initial demo data. Make sure to download a backup first!
+          </p>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Type "RESET" to confirm:</label>
+          <input type="text" id="reset-confirm-input" placeholder="Type RESET" class="input-field w-full px-3.5 py-2 rounded-xl text-xs">
+        </div>
+
+        <button onclick="handleResetAllData()" class="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-xs cursor-pointer">
+          Reset All Data
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ ADD GRADE COURSE MODAL ============ -->
+  <div id="add-grade-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm hidden">
+    <div class="bg-white dark:bg-surface-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 space-y-4 animate-in fade-in zoom-in duration-200">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold">
+            <i data-lucide="award" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-gray-900 dark:text-white">Add Semester Course</h3>
+            <p class="text-[11px] text-gray-400">Calculate credits & grade points for SGPA</p>
+          </div>
+        </div>
+        <button onclick="closeAddGradeModal()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-surface-700 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-xs">
+        <div>
+          <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Course Name *</label>
+          <input type="text" id="grade-modal-name" placeholder="e.g., Object Oriented Programming, Machine Learning" class="input-field w-full px-3.5 py-2.5 rounded-xl">
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Code</label>
+            <input type="text" id="grade-modal-code" placeholder="CS301" class="input-field w-full px-3.5 py-2.5 rounded-xl uppercase">
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Credits *</label>
+            <select id="grade-modal-credits" class="input-field w-full px-3 py-2.5 rounded-xl">
+              <option value="1">1 Credit</option>
+              <option value="2">2 Credits</option>
+              <option value="3" selected>3 Credits</option>
+              <option value="4">4 Credits</option>
+              <option value="5">5 Credits</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-gray-700 dark:text-gray-300 mb-1">Grade *</label>
+            <select id="grade-modal-grade" class="input-field w-full px-3 py-2.5 rounded-xl font-bold">
+              <option value="O">O (10)</option>
+              <option value="A+" selected>A+ (9)</option>
+              <option value="A">A (8)</option>
+              <option value="B+">B+ (7)</option>
+              <option value="B">B (6)</option>
+              <option value="C">C (5)</option>
+              <option value="P">P (4)</option>
+              <option value="F">F (0)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-2 border-t border-gray-100 dark:border-gray-700">
+          <button onclick="closeAddGradeModal()" class="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 cursor-pointer">
+            Cancel
+          </button>
+          <button onclick="handleSaveGradeCourse()" class="px-5 py-2 bg-accent hover:bg-accent-dark text-white rounded-xl font-bold shadow-md cursor-pointer">
+            Add to Semester
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ============ MOBILE NATIVE BOTTOM NAVIGATION DOCK ============ -->
+  <nav id="mobile-bottom-dock" class="fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-surface-800/90 backdrop-blur-xl border-t border-gray-200/70 dark:border-surface-700/70 lg:hidden px-3 py-1.5 flex items-center justify-around shadow-2xl safe-area-pb">
+    <button onclick="navigateTo('dashboard')" data-mobile-nav="dashboard" class="mobile-nav-btn flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-accent transition-all cursor-pointer">
+      <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+      <span class="text-[10px] font-semibold mt-0.5">Home</span>
+    </button>
+    <button onclick="navigateTo('attendance')" data-mobile-nav="attendance" class="mobile-nav-btn flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-accent transition-all cursor-pointer">
+      <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+      <span class="text-[10px] font-semibold mt-0.5">Classes</span>
+    </button>
+    
+    <!-- Floating Center Quick-Add Button on Mobile -->
+    <button onclick="openQuickAdd()" class="flex items-center justify-center -mt-5 w-12 h-12 rounded-full bg-gradient-to-tr from-accent to-pink-500 text-white shadow-lg shadow-accent/40 active:scale-90 transition-transform cursor-pointer" title="Quick Add Entry">
+      <i data-lucide="plus" class="w-6 h-6"></i>
+    </button>
+
+    <button onclick="navigateTo('study')" data-mobile-nav="study" class="mobile-nav-btn flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-accent transition-all cursor-pointer">
+      <i data-lucide="book-open" class="w-5 h-5"></i>
+      <span class="text-[10px] font-semibold mt-0.5">Study</span>
+    </button>
+    <button onclick="navigateTo('expense')" data-mobile-nav="expense" class="mobile-nav-btn flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-accent transition-all cursor-pointer">
+      <i data-lucide="wallet" class="w-5 h-5"></i>
+      <span class="text-[10px] font-semibold mt-0.5">Money</span>
+    </button>
+    <button onclick="toggleMobileMoreDrawer()" id="mobile-more-btn" class="mobile-nav-btn flex flex-col items-center justify-center py-1 px-2.5 rounded-xl text-gray-500 dark:text-gray-400 hover:text-accent transition-all cursor-pointer">
+      <i data-lucide="menu" class="w-5 h-5"></i>
+      <span class="text-[10px] font-semibold mt-0.5">More</span>
+    </button>
+  </nav>
+
+  <!-- ============ MOBILE MORE MENU BOTTOM SHEET ============ -->
+  <div id="mobile-more-drawer" class="fixed inset-0 z-50 flex flex-col justify-end bg-black/50 backdrop-blur-sm hidden lg:hidden animate-in fade-in duration-200" onclick="if(event.target === this) toggleMobileMoreDrawer()">
+    <div class="bg-white dark:bg-surface-800 rounded-t-3xl p-5 shadow-2xl border-t border-gray-100 dark:border-surface-700 max-h-[85vh] overflow-y-auto space-y-4 animate-in slide-in-from-bottom duration-200">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-surface-700">
+        <div class="flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-accent text-white flex items-center justify-center font-bold text-xs">LF</span>
+          <div>
+            <h4 class="font-bold text-sm text-gray-900 dark:text-white">LifeFlow App Menu</h4>
+            <p class="text-[10px] text-gray-400">Student Tools & Academics</p>
+          </div>
+        </div>
+        <button onclick="toggleMobileMoreDrawer()" class="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-700 cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Grid of Secondary Features -->
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <button onclick="navigateTo('progress'); toggleMobileMoreDrawer()" class="p-3 rounded-xl bg-gray-50 dark:bg-surface-700/50 hover:bg-gray-100 dark:hover:bg-surface-700 flex items-center gap-2.5 font-semibold text-gray-800 dark:text-white cursor-pointer transition-all">
+          <i data-lucide="gauge" class="w-4 h-4 text-accent"></i> Progress Hub
+        </button>
+        <button onclick="navigateTo('grades'); toggleMobileMoreDrawer()" class="p-3 rounded-xl bg-gray-50 dark:bg-surface-700/50 hover:bg-gray-100 dark:hover:bg-surface-700 flex items-center gap-2.5 font-semibold text-gray-800 dark:text-white cursor-pointer transition-all">
+          <i data-lucide="award" class="w-4 h-4 text-purple-600"></i> SGPA & CGPA
+        </button>
+        <button onclick="navigateTo('routine'); toggleMobileMoreDrawer()" class="p-3 rounded-xl bg-gray-50 dark:bg-surface-700/50 hover:bg-gray-100 dark:hover:bg-surface-700 flex items-center gap-2.5 font-semibold text-gray-800 dark:text-white cursor-pointer transition-all">
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i> Daily Habits
+        </button>
+        <button onclick="navigateTo('goals'); toggleMobileMoreDrawer()" class="p-3 rounded-xl bg-gray-50 dark:bg-surface-700/50 hover:bg-gray-100 dark:hover:bg-surface-700 flex items-center gap-2.5 font-semibold text-gray-800 dark:text-white cursor-pointer transition-all">
+          <i data-lucide="target" class="w-4 h-4 text-rose-500"></i> Goals & Plans
+        </button>
+        <button onclick="navigateTo('udhar'); toggleMobileMoreDrawer()" class="p-3 rounded-xl bg-gray-50 dark:bg-surface-700/50 hover:bg-gray-100 dark:hover:bg-surface-700 flex items-center gap-2.5 font-semibold text-gray-800 dark:text-white cursor-pointer transition-all">
+          <i data-lucide="hand-coins" class="w-4 h-4 text-amber-500"></i> Friends Udhar
+        </button>
+        <button onclick="navigateTo('achievements'); toggleMobileMoreDrawer()" class="p-3 rounded-xl bg-gray-50 dark:bg-surface-700/50 hover:bg-gray-100 dark:hover:bg-surface-700 flex items-center gap-2.5 font-semibold text-gray-800 dark:text-white cursor-pointer transition-all">
+          <i data-lucide="sparkles" class="w-4 h-4 text-yellow-500"></i> Weekly Badges
+        </button>
+      </div>
+
+      <!-- Action Shortcuts -->
+      <div class="pt-2 border-t border-gray-100 dark:border-surface-700 space-y-2">
+        <button onclick="openBackupModal(); toggleMobileMoreDrawer()" class="w-full py-2.5 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer">
+          <i data-lucide="hard-drive" class="w-4 h-4"></i> Backup & Restore Data
+        </button>
+        <button onclick="openMonthlyReportModal(); toggleMobileMoreDrawer()" class="w-full py-2.5 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/20 text-accent font-bold text-xs flex items-center justify-center gap-2 cursor-pointer">
+          <i data-lucide="file-text" class="w-4 h-4"></i> Monthly PDF Report
+        </button>
+        <div class="flex items-center justify-between pt-2">
+          <button onclick="toggleTheme()" class="text-xs font-semibold text-gray-600 dark:text-gray-300 flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="moon" class="w-4 h-4"></i> Switch Dark/Light
+          </button>
+          <button onclick="handleLogout()" class="text-xs font-bold text-rose-500 flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="log-out" class="w-4 h-4"></i> Log Out
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>
