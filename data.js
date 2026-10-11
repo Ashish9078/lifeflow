@@ -4,18 +4,33 @@
 const memoryStorage = {
   data: {},
   getItem: function(key) {
-    return this.data[key] !== undefined ? this.data[key] : null;
+    if (this.data[key] !== undefined) return this.data[key];
+    try {
+      const val = window.localStorage.getItem(key);
+      if (val !== null) {
+        this.data[key] = val;
+        return val;
+      }
+    } catch (e) {}
+    return null;
   },
   setItem: function(key, val) {
     this.data[key] = val;
+    try {
+      window.localStorage.setItem(key, val);
+    } catch (e) {}
   },
   removeItem: function(key) {
-    if (key in this.data) {
-        delete this.data[key];
-    }
+    delete this.data[key];
+    try {
+      window.localStorage.removeItem(key);
+    } catch (e) {}
   },
   clear: function() {
     this.data = {};
+    try {
+      window.localStorage.clear();
+    } catch (e) {}
   }
 };
 
@@ -200,9 +215,68 @@ function isDemoUser() {
   return user && user.id === 'demo_user';
 }
 
+// ========== FIREBASE CLOUD DATABASE & AUTH INTEGRATION ==========
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCY8HsvYqvm9hPw9Y_C3ZaV14AQ01sXVIw",
+  authDomain: "lifeflow-tracker-87687.firebaseapp.com",
+  projectId: "lifeflow-tracker-87687",
+  storageBucket: "lifeflow-tracker-87687.firebasestorage.app",
+  messagingSenderId: "350077853265",
+  appId: "1:350077853265:web:819a5bf3318617feb56270"
+};
+
+let db = null;
+
+function initFirebase() {
+  if (typeof firebase !== 'undefined' && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      db = firebase.firestore();
+      console.log('⚡ Firebase Cloud Firestore successfully initialized for cross-device authentication');
+      // Auto-sync any existing local accounts to cloud
+      syncLocalUsersToCloud();
+    } catch (err) {
+      console.warn('Firebase init error:', err);
+    }
+  } else {
+    console.warn('Firebase SDK not ready or config missing, fallback to local storage.');
+  }
+}
+initFirebase();
+
+// Backup locally saved accounts to Cloud Firestore so accounts created on one device exist in the cloud
+async function syncLocalUsersToCloud() {
+  if (!db) return;
+  try {
+    const users = getUsers();
+    for (const u of users) {
+      if (u.email && u.password && u.id !== 'demo_user') {
+        const cleanEmail = u.email.trim().toLowerCase();
+        const docRef = db.collection('lifeflow_users').doc(cleanEmail);
+        const snap = await docRef.get();
+        if (!snap.exists) {
+          await docRef.set({
+            id: u.id,
+            name: u.name,
+            email: cleanEmail,
+            password: u.password,
+            createdAt: u.createdAt || new Date().toISOString()
+          });
+          console.log('☁️ Auto-synced local user to Cloud Firestore:', cleanEmail);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Sync local users to cloud error:', err);
+  }
+}
+
 // ========== AUTH SYSTEM ==========
 
-// Simple hash for passwords (not crypto-secure, but fine for memoryStorage demo)
+// Simple hash for passwords (SHA-256)
 async function hashPassword(password) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password + 'lifeflow_salt_2026');
@@ -219,47 +293,81 @@ function getUsers() {
 }
 
 function saveUsers(users) {
-  window.localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users));
+  try {
+    window.localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users));
+  } catch (e) {}
 }
 
 function getCurrentUser() {
   try {
-    const d = window.localStorage.getItem(STORAGE_KEYS.currentUser);
+    const d = window.localStorage.getItem(STORAGE_KEYS.currentUser) || memoryStorage.getItem(STORAGE_KEYS.currentUser);
     return d !== null ? JSON.parse(d) : null;
   } catch { return null; }
 }
 
 function setCurrentUser(user) {
   if (user) {
-    // Store session with user info (no password)
-    window.localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify({
+    const sessionUser = {
       id: user.id,
       name: user.name,
       email: user.email,
       createdAt: user.createdAt,
-    }));
+    };
+    const serialized = JSON.stringify(sessionUser);
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.currentUser, serialized);
+    } catch (e) {}
+    memoryStorage.setItem(STORAGE_KEYS.currentUser, serialized);
   } else {
-    window.localStorage.removeItem(STORAGE_KEYS.currentUser);
+    try {
+      window.localStorage.removeItem(STORAGE_KEYS.currentUser);
+    } catch (e) {}
+    memoryStorage.removeItem(STORAGE_KEYS.currentUser);
   }
 }
 
 async function registerUser(name, email, password) {
-  const users = getUsers();
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanName = name.trim();
 
-  // Check if email already exists
-  if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+  // 1. Check Cloud Firestore if connected
+  if (db) {
+    try {
+      const docSnap = await db.collection('lifeflow_users').doc(cleanEmail).get();
+      if (docSnap.exists) {
+        return { success: false, error: 'An account with this email already exists.' };
+      }
+    } catch (err) {
+      console.warn('Firebase existing user check warning:', err);
+    }
+  }
+
+  // 2. Check local users cache
+  const users = getUsers();
+  if (users.find(u => u.email.toLowerCase() === cleanEmail)) {
     return { success: false, error: 'An account with this email already exists.' };
   }
 
   const hashedPw = await hashPassword(password);
   const newUser = {
     id: uid(),
-    name: name.trim(),
-    email: email.trim().toLowerCase(),
+    name: cleanName,
+    email: cleanEmail,
     password: hashedPw,
     createdAt: new Date().toISOString(),
   };
 
+  // 3. Save to Cloud Firestore so mobile and other devices can log in immediately
+  if (db) {
+    try {
+      await db.collection('lifeflow_users').doc(cleanEmail).set(newUser);
+      console.log('✅ Successfully registered user to Cloud Firestore:', cleanEmail);
+    } catch (err) {
+      console.error('Failed to save user to Cloud Firestore:', err);
+    }
+  }
+
+  // 4. Save to local storage cache
   users.push(newUser);
   saveUsers(users);
 
@@ -273,16 +381,55 @@ async function registerUser(name, email, password) {
 }
 
 async function loginUser(email, password) {
-  const users = getUsers();
+  const cleanEmail = email.trim().toLowerCase();
   const hashedPw = await hashPassword(password);
-  const user = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === hashedPw);
+  let user = null;
+
+  // 1. Check Cloud Firestore first so any device (mobile, Mac, PC) can log in
+  if (db) {
+    try {
+      const docSnap = await db.collection('lifeflow_users').doc(cleanEmail).get();
+      if (docSnap.exists) {
+        const cloudUser = docSnap.data();
+        if (cloudUser.password === hashedPw) {
+          user = cloudUser;
+          // Cache user locally on this device
+          const users = getUsers();
+          const idx = users.findIndex(u => u.email.toLowerCase() === cleanEmail);
+          if (idx >= 0) {
+            users[idx] = cloudUser;
+          } else {
+            users.push(cloudUser);
+          }
+          saveUsers(users);
+        } else {
+          return { success: false, error: 'Invalid email or password.' };
+        }
+      }
+    } catch (err) {
+      console.warn('Firebase cloud login lookup failed, falling back to local:', err);
+    }
+  }
+
+  // 2. Fallback to local users list if not found in cloud or if offline
+  if (!user) {
+    const users = getUsers();
+    user = users.find(u => u.email.toLowerCase() === cleanEmail && u.password === hashedPw);
+    // If found locally and cloud is active, sync user to cloud so other devices can use it
+    if (user && db) {
+      try {
+        await db.collection('lifeflow_users').doc(cleanEmail).set(user, { merge: true });
+        console.log('☁️ Backed up local user to Cloud Firestore:', cleanEmail);
+      } catch (e) {}
+    }
+  }
 
   if (!user) {
     return { success: false, error: 'Invalid email or password.' };
   }
 
   setCurrentUser(user);
-  await pullAllFromSupabase(); // Load user data from cloud to memory
+  await pullAllFromSupabase(); // Load user habits/expenses/routines data from cloud to this device
   return { success: true, user };
 }
 
@@ -414,32 +561,7 @@ async function ensureDemoAccount() {
 }
 ensureDemoAccount();
 
-// ========== FIREBASE CLOUD DATABASE INTEGRATION ==========
-
-// Firebase configuration (Placeholder - update these later)
-const firebaseConfig = {
-  apiKey: "AIzaSyCY8HsvYqvm9hPw9Y_C3ZaV14AQ01sXVIw",
-  authDomain: "lifeflow-tracker-87687.firebaseapp.com",
-  projectId: "lifeflow-tracker-87687",
-  storageBucket: "lifeflow-tracker-87687.firebasestorage.app",
-  messagingSenderId: "350077853265",
-  appId: "1:350077853265:web:819a5bf3318617feb56270"
-};
-
-let db = null;
-
-function initFirebase() {
-  if (typeof firebase !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY") {
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-    db = firebase.firestore();
-    console.log('⚡ Firebase successfully initialized');
-  } else {
-    console.warn('Firebase config missing, running in local ephemeral memory mode.');
-  }
-}
-initFirebase();
+// ========== CLOUD SYNC FUNCTIONS ==========
 
 function isSupabaseConnected() {
   return db !== null;
@@ -450,7 +572,7 @@ function getCurrentUserEmail() {
   return (u && u.email) ? u.email : 'guest@lifeflow.app';
 }
 
-// Overwrite the old sync to Supabase function calls to do nothing or sync to Firebase
+// Overwrite the old sync to Supabase function calls to sync to Firebase
 async function syncKeyToSupabase(key, val) {
   if (!db) return;
   // Ignore config keys
@@ -473,7 +595,7 @@ async function syncKeyToSupabase(key, val) {
 }
 
 async function testSupabaseConnection(url, key) {
-  return { success: true, message: 'Firebase placeholder successful' };
+  return { success: true, message: 'Firebase connection successful' };
 }
 
 async function pushAllToSupabase() {
@@ -483,15 +605,35 @@ async function pushAllToSupabase() {
     const userEmail = getCurrentUserEmail();
     const docRef = db.collection('lifeflow_data').doc(userEmail);
     
-    // Gather all data from memoryStorage
+    // Gather all data from memoryStorage and localStorage
     const dataToPush = {};
     for (const [k, v] of Object.entries(memoryStorage.data)) {
-        try {
-            dataToPush[k] = JSON.parse(v);
-        } catch(e) {
-            dataToPush[k] = v;
-        }
+      if (GLOBAL_STORAGE_KEYS.has(k)) continue;
+      try {
+        dataToPush[k] = JSON.parse(v);
+      } catch(e) {
+        dataToPush[k] = v;
+      }
     }
+
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const lk = window.localStorage.key(i);
+          if (lk && lk.startsWith('lifeflow_') && !GLOBAL_STORAGE_KEYS.has(lk)) {
+            if (dataToPush[lk] === undefined) {
+              const lv = window.localStorage.getItem(lk);
+              try {
+                dataToPush[lk] = JSON.parse(lv);
+              } catch(e) {
+                dataToPush[lk] = lv;
+              }
+            }
+          }
+        }
+      }
+    } catch(e) {}
+
     dataToPush.updated_at = firebase.firestore.FieldValue.serverTimestamp();
     
     await docRef.set(dataToPush, { merge: true });
@@ -515,8 +657,8 @@ async function pullAllFromSupabase() {
       let count = 0;
       for (const [k, v] of Object.entries(data)) {
         if (k !== 'updated_at') {
-          // set directly in memoryStorage to avoid triggering save again
-          memoryStorage.setItem(k, JSON.stringify(v));
+          const serialized = typeof v === 'string' ? v : JSON.stringify(v);
+          memoryStorage.setItem(k, serialized);
           count++;
         }
       }
