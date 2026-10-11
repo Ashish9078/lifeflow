@@ -167,8 +167,8 @@ async function handleDemoLogin() {
     transitionToApp();
   }
 }
-
 function handleLogout() {
+  if (typeof stopRealtimeCloudSync === 'function') stopRealtimeCloudSync();
   logoutUser();
   // Transition back to auth
   const app = document.getElementById('app');
@@ -211,6 +211,7 @@ function transitionToApp() {
     // Init app
     navigateTo('dashboard');
     lucide.createIcons();
+    if (typeof startRealtimeCloudSync === 'function') startRealtimeCloudSync();
 
     setTimeout(() => app.classList.remove('app-enter'), 500);
   }, 350);
@@ -3681,6 +3682,15 @@ document.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();
   refreshDbStatusUI();
 
+  // Listen for real-time cloud data updates from other devices
+  window.addEventListener('lifeflow:cloudSync', () => {
+    if (typeof currentPage !== 'undefined' && typeof renderPage === 'function') {
+      renderPage(currentPage);
+    }
+    updateSidebarUser();
+    refreshDbStatusUI();
+  });
+
   // Check 1st-of-month auto reset
   const resetResult = checkMonthlyAutoReset(false);
 
@@ -3691,6 +3701,20 @@ document.addEventListener('DOMContentLoaded', () => {
     updateSidebarUser();
     navigateTo('dashboard');
     setTimeout(function () { triggerWebsiteAutoSend(false); }, 1500);
+
+    // Pull fresh data from cloud and start live real-time sync across devices
+    if (typeof pullAllFromSupabase === 'function') {
+      pullAllFromSupabase().then(() => {
+        if (typeof currentPage !== 'undefined' && typeof renderPage === 'function') {
+          renderPage(currentPage);
+        }
+        if (typeof startRealtimeCloudSync === 'function') {
+          startRealtimeCloudSync();
+        }
+      }).catch(err => {
+        console.warn('Initial cloud pull failed:', err);
+      });
+    }
 
     if (resetResult && resetResult.resetOccurred) {
       setTimeout(() => {
@@ -3708,8 +3732,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 1800000);
 
+  // Sync fresh updates when user switches back to this tab/phone screen
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
+    if (!document.hidden && isLoggedIn()) {
+      if (typeof pullAllFromSupabase === 'function') {
+        pullAllFromSupabase().then(() => {
+          if (typeof currentPage !== 'undefined' && typeof renderPage === 'function') {
+            renderPage(currentPage);
+          }
+        }).catch(() => {});
+      }
       const res = checkMonthlyAutoReset(false);
       if (res && res.resetOccurred) {
         if (typeof currentPage !== 'undefined') renderPage(currentPage);

@@ -563,18 +563,72 @@ ensureDemoAccount();
 
 // ========== CLOUD SYNC FUNCTIONS ==========
 
+let realtimeUnsubscribe = null;
+let isApplyingCloudUpdate = false;
+
 function isSupabaseConnected() {
   return db !== null;
 }
 
 function getCurrentUserEmail() {
   const u = getCurrentUser();
-  return (u && u.email) ? u.email : 'guest@lifeflow.app';
+  return (u && u.email) ? u.email.trim().toLowerCase() : 'guest@lifeflow.app';
+}
+
+// Start real-time Firestore listener for live cross-device sync
+function startRealtimeCloudSync() {
+  if (!db) return;
+  const user = getCurrentUser();
+  if (!user || !user.email) return;
+
+  stopRealtimeCloudSync();
+
+  const userEmail = user.email.trim().toLowerCase();
+  try {
+    realtimeUnsubscribe = db.collection('lifeflow_data').doc(userEmail)
+      .onSnapshot((doc) => {
+        if (!doc.exists) return;
+        const data = doc.data();
+        let changed = false;
+
+        isApplyingCloudUpdate = true;
+        try {
+          for (const [k, v] of Object.entries(data)) {
+            if (k === 'updated_at') continue;
+            const serialized = JSON.stringify(v);
+            const currentVal = memoryStorage.getItem(k);
+            if (currentVal !== serialized) {
+              memoryStorage.setItem(k, serialized);
+              changed = true;
+            }
+          }
+        } finally {
+          isApplyingCloudUpdate = false;
+        }
+
+        if (changed) {
+          console.log('⚡ Real-time cloud sync update received, triggering UI refresh');
+          window.dispatchEvent(new CustomEvent('lifeflow:cloudSync'));
+        }
+      }, (err) => {
+        console.warn('Real-time sync listener error:', err);
+      });
+    console.log('⚡ Real-time cloud sync active for:', userEmail);
+  } catch (err) {
+    console.warn('Could not start real-time listener:', err);
+  }
+}
+
+function stopRealtimeCloudSync() {
+  if (typeof realtimeUnsubscribe === 'function') {
+    realtimeUnsubscribe();
+    realtimeUnsubscribe = null;
+  }
 }
 
 // Overwrite the old sync to Supabase function calls to sync to Firebase
 async function syncKeyToSupabase(key, val) {
-  if (!db) return;
+  if (!db || isApplyingCloudUpdate) return;
   // Ignore config keys
   if (
     key === STORAGE_KEYS.supabaseUrl ||
@@ -655,12 +709,17 @@ async function pullAllFromSupabase() {
     if (doc.exists) {
       const data = doc.data();
       let count = 0;
-      for (const [k, v] of Object.entries(data)) {
-        if (k !== 'updated_at') {
-          const serialized = typeof v === 'string' ? v : JSON.stringify(v);
-          memoryStorage.setItem(k, serialized);
-          count++;
+      isApplyingCloudUpdate = true;
+      try {
+        for (const [k, v] of Object.entries(data)) {
+          if (k !== 'updated_at') {
+            const serialized = JSON.stringify(v);
+            memoryStorage.setItem(k, serialized);
+            count++;
+          }
         }
+      } finally {
+        isApplyingCloudUpdate = false;
       }
       return { success: true, count, message: 'Successfully pulled from Firebase' };
     } else {
