@@ -451,7 +451,24 @@
       animate(lastFrameTime);
     }
 
-    // Update Top Pill Switch
+    // Update all 3D Switch buttons across Desktop & Mobile (Top Pill, Header, Sidebar 3-Line Tab, Mobile 3-Line Drawer)
+    sync3DToggleButtons();
+
+    // Reset any active tilt transforms
+    document.querySelectorAll('.card-3d-interactive').forEach(card => {
+      card.style.transform = '';
+      const glare = card.querySelector('.card-3d-glare');
+      if (glare) glare.style.opacity = '0';
+    });
+
+    if (typeof showToast === 'function') {
+      showToast(is3DActive ? '✨ 3D Animation ON (Active)' : '🛑 3D Animation OFF (Turned Off)', is3DActive ? 'info' : 'warning');
+    }
+  };
+
+  // Synchronize all 3D buttons across the UI
+  function sync3DToggleButtons() {
+    // 1. Top Pill Switch
     const globalBtn = document.getElementById('global-3d-toggle-btn');
     const statusText = document.getElementById('btn-3d-status-text');
     const pulseDot = document.getElementById('btn-3d-pulse');
@@ -470,24 +487,41 @@
       }
     }
 
-    // Update Header 3D button
+    // 2. Header 3D button
     const headerBtn = document.getElementById('toggle-3d-mode-btn');
     if (headerBtn) {
       headerBtn.classList.toggle('text-accent', is3DActive);
       headerBtn.classList.toggle('bg-accent/15', is3DActive);
     }
 
-    // Reset any active tilt transforms
-    document.querySelectorAll('.card-3d-interactive').forEach(card => {
-      card.style.transform = '';
-      const glare = card.querySelector('.card-3d-glare');
-      if (glare) glare.style.opacity = '0';
-    });
-
-    if (typeof showToast === 'function') {
-      showToast(is3DActive ? '✨ 3D Animation ON (Active)' : '🛑 3D Animation OFF (Turned Off)', is3DActive ? 'info' : 'warning');
+    // 3. Sidebar 3-Line Menu 3D Badge
+    const sidebarBadge = document.getElementById('sidebar-3d-badge');
+    if (sidebarBadge) {
+      if (is3DActive) {
+        sidebarBadge.textContent = 'ON';
+        sidebarBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400';
+      } else {
+        sidebarBadge.textContent = 'OFF';
+        sidebarBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-200 dark:bg-gray-700 text-gray-500';
+      }
     }
-  };
+
+    // 4. Mobile 3-Line Drawer Menu 3D Pill
+    const mobileDrawerStatus = document.getElementById('mobile-drawer-3d-status');
+    const mobileDrawerPill = document.getElementById('mobile-drawer-3d-pill');
+    const mobileDrawerDot = document.getElementById('mobile-drawer-3d-dot');
+    if (mobileDrawerStatus && mobileDrawerPill) {
+      if (is3DActive) {
+        mobileDrawerStatus.textContent = 'ON';
+        mobileDrawerPill.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]';
+        if (mobileDrawerDot) mobileDrawerDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+      } else {
+        mobileDrawerStatus.textContent = 'OFF';
+        mobileDrawerPill.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-500 font-bold text-[11px]';
+        if (mobileDrawerDot) mobileDrawerDot.className = 'w-2 h-2 rounded-full bg-gray-400';
+      }
+    }
+  }
 
   function start() {
     window.addEventListener('resize', onResize, { passive: true });
@@ -507,22 +541,12 @@
     observeDOM();
 
     // Initial state setup on page load
+    sync3DToggleButtons();
     if (!is3DActive) {
       const canvasContainer = document.getElementById('three-spatial-canvas-container');
       const spotlight = document.getElementById('three-cursor-spotlight');
       if (canvasContainer) canvasContainer.style.display = 'none';
       if (spotlight) spotlight.style.display = 'none';
-
-      const globalBtn = document.getElementById('global-3d-toggle-btn');
-      const statusText = document.getElementById('btn-3d-status-text');
-      const pulseDot = document.getElementById('btn-3d-pulse');
-      const staticDot = document.getElementById('btn-3d-dot');
-      if (globalBtn && statusText) {
-        statusText.textContent = '3D Animation: OFF';
-        globalBtn.classList.add('opacity-60');
-        if (pulseDot) pulseDot.classList.add('hidden');
-        if (staticDot) staticDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-gray-400';
-      }
     }
   }
 

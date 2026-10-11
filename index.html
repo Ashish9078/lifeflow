@@ -233,6 +233,14 @@
         <button onclick="openBackupModal()" class="nav-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-gray-600 dark:text-gray-300 hover:text-accent">
           <i data-lucide="hard-drive" class="w-[18px] h-[18px]"></i> Backup & Restore
         </button>
+        <!-- 3D Animation ON / OFF Switch in Sidebar (3-Line Tab) -->
+        <button onclick="toggle3DFX()" id="sidebar-3d-toggle-btn" class="nav-link w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-gray-600 dark:text-gray-300 hover:text-accent cursor-pointer group" title="Toggle 3D Universe Animation">
+          <div class="flex items-center gap-3">
+            <i data-lucide="box" class="w-[18px] h-[18px] text-accent"></i>
+            <span>3D Animation</span>
+          </div>
+          <span id="sidebar-3d-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">ON</span>
+        </button>
       </nav>
       <!-- User Footer (dynamic) -->
       <div class="p-4 border-t border-gray-200/50 dark:border-gray-700/50">
@@ -1162,6 +1170,23 @@ CREATE POLICY "Allow anon read write on lifeflow_sync"
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
+
+      <!-- 3D Animation ON / OFF Switch in 3-Line Mobile Drawer Tab -->
+      <button onclick="toggle3DFX()" id="mobile-drawer-3d-btn" class="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/20 text-gray-900 dark:text-white font-bold text-xs flex items-center justify-between cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.98]">
+        <div class="flex items-center gap-2.5">
+          <div class="w-7 h-7 rounded-lg bg-accent text-white flex items-center justify-center shadow-sm">
+            <i data-lucide="box" class="w-4 h-4"></i>
+          </div>
+          <div class="text-left">
+            <div class="font-bold text-xs">3D Universe Animation</div>
+            <div id="mobile-drawer-3d-subtext" class="text-[10px] text-gray-400 font-normal">Spatial 3D motion & tilt</div>
+          </div>
+        </div>
+        <div id="mobile-drawer-3d-pill" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">
+          <span id="mobile-drawer-3d-dot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span id="mobile-drawer-3d-status">ON</span>
+        </div>
+      </button>
 
       <!-- Grid of Secondary Features -->
       <div class="grid grid-cols-2 gap-2 text-xs">
