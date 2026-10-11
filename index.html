@@ -45,20 +45,6 @@
   <!-- ============ 3D SPATIAL UNIVERSE CANVAS ============ -->
   <div id="three-spatial-canvas-container"></div>
 
-  <!-- ============ GLOBAL TOP 3D ON/OFF CONTROL BAR ============ -->
-  <div id="top-3d-control-pill" class="fixed top-4 right-4 z-50 flex items-center gap-2">
-    <button onclick="toggle3DFX()" id="global-3d-toggle-btn"
-      class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-white/80 dark:bg-surface-800/80 backdrop-blur-xl border border-indigo-500/30 shadow-lg text-indigo-600 dark:text-indigo-400 hover:scale-105 active:scale-95 transition-all cursor-pointer group"
-      title="Toggle 3D Animation ON / OFF">
-      <span class="relative flex h-2 w-2">
-        <span id="btn-3d-pulse" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-        <span id="btn-3d-dot" class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-      </span>
-      <i data-lucide="box" class="w-4 h-4 animate-spin text-accent" style="animation-duration: 8s;"></i>
-      <span id="btn-3d-status-text" class="tracking-wide">3D Animation: ON</span>
-    </button>
-  </div>
-
   <!-- ============ AUTH SCREEN ============ -->
   <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
     <!-- Animated Background -->
@@ -291,13 +277,6 @@
             <button onclick="openQuickAdd()" class="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-dark text-white rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-accent/25 active:scale-95">
               <i data-lucide="plus" class="w-4 h-4"></i>
               <span class="hidden sm:inline">Add Entry</span>
-            </button>
-            <!-- 3D Spatial FX Toggle Button in Header -->
-            <button onclick="toggle3DFX()" id="toggle-3d-mode-btn"
-              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-bold text-xs bg-indigo-500/10 text-accent border border-indigo-500/20 hover:bg-indigo-500/20 transition-all cursor-pointer shadow-2xs"
-              title="Toggle Interactive 3D Spatial Animations">
-              <i data-lucide="box" class="w-3.5 h-3.5 animate-spin" style="animation-duration: 8s;"></i>
-              <span class="hidden md:inline">3D FX</span>
             </button>
             <button onclick="toggleTheme()" id="theme-toggle" class="p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
               <i data-lucide="moon" class="w-5 h-5 dark:hidden"></i>
