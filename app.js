@@ -28,11 +28,11 @@ initTheme();
 
 // Ensure legacy device-phone-mode is cleared
 try {
-  localStorage.removeItem('lifeflow_device_mode');
+  memoryStorage.removeItem('lifeflow_device_mode');
   if (typeof document !== 'undefined' && document.body) {
     document.body.classList.remove('device-phone-mode');
   }
-} catch (e) {}
+} catch (e) { }
 
 
 
@@ -41,10 +41,10 @@ try {
 function switchAuthTab(tab) {
   document.querySelectorAll('.auth-tab').forEach(el => el.classList.remove('active'));
   document.querySelector(`[data-auth-tab="${tab}"]`)?.classList.add('active');
-  
+
   document.querySelectorAll('.auth-form').forEach(el => el.classList.add('hidden'));
   document.getElementById(tab === 'login' ? 'login-form' : 'signup-form')?.classList.remove('hidden');
-  
+
   // Clear errors
   hideAuthError('login');
   hideAuthError('signup');
@@ -198,20 +198,20 @@ function transitionToApp() {
 
   // Animate auth out
   auth.classList.add('auth-exit');
-  
+
   setTimeout(() => {
     auth.classList.add('hidden');
     auth.classList.remove('auth-exit');
     app.classList.remove('hidden');
     app.classList.add('app-enter');
-    
+
     // Update sidebar with user info
     updateSidebarUser();
-    
+
     // Init app
     navigateTo('dashboard');
     lucide.createIcons();
-    
+
     setTimeout(() => app.classList.remove('app-enter'), 500);
   }, 350);
 }
@@ -253,8 +253,8 @@ function navigateTo(page) {
   document.querySelector(`[data-nav="${page}"]`)?.classList.add('active');
 
   // Update mobile bottom dock active state
-  document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
-    const target = btn.getAttribute('data-mobile-nav');
+  document.querySelectorAll('.phone-nav-btn').forEach(btn => {
+    const target = btn.getAttribute('data-phone-nav');
     if (target === page) {
       btn.classList.add('text-accent', 'font-bold');
       btn.classList.remove('text-gray-500', 'dark:text-gray-400');
@@ -264,7 +264,7 @@ function navigateTo(page) {
     }
   });
 
-  
+
   const titles = {
     dashboard: ['Dashboard', 'Overview of your day'],
     progress: ['Progress Hub', 'Section-by-section progress circles, completion rings & performance bars'],
@@ -275,7 +275,8 @@ function navigateTo(page) {
     udhar: ['Friends Lending & Debt', 'Track loans, split bills & settlements with friends'],
     attendance: ['Class Attendance Tracker', 'Track class presence, calculate bunk allowance & exam eligibility'],
     grades: ['Academic Grades & CGPA Calculator', 'Calculate semester SGPA, cumulative CGPA, and project target grades'],
-    achievements: ['Weekly Performance Recap & Badges', 'Weekly progress scorecard and gamified milestone achievements']
+    achievements: ['Weekly Performance Recap & Badges', 'Weekly progress scorecard and gamified milestone achievements'],
+    yearly: ['12-Month Analysis', 'Annual trends & insights across all domains']
   };
   document.getElementById('page-title').textContent = titles[page]?.[0] || '';
   document.getElementById('page-subtitle').textContent = titles[page]?.[1] || '';
@@ -295,6 +296,7 @@ function renderPage(page) {
   switch (page) {
     case 'dashboard': container.innerHTML = renderDashboard(); break;
     case 'progress': container.innerHTML = renderProgressHub(); break;
+    case 'lofi': container.innerHTML = renderLofiRoom(); break;
     case 'routine': container.innerHTML = renderRoutine(); break;
     case 'study': container.innerHTML = renderStudy(); break;
     case 'udhar': container.innerHTML = renderUdhar(); break;
@@ -303,15 +305,19 @@ function renderPage(page) {
     case 'achievements': container.innerHTML = renderAchievements(); break;
     case 'expense': container.innerHTML = renderExpense(); break;
     case 'goals': container.innerHTML = renderGoals(); break;
+    case 'yearly': container.innerHTML = renderYearly(); break;
   }
   container.classList.remove('page-enter');
   void container.offsetWidth;
   container.classList.add('page-enter');
 
   lucide.createIcons();
-  
+
   if (page === 'study' || page === 'dashboard') {
     setTimeout(initCharts, 50);
+  }
+  if (page === 'yearly') {
+    setTimeout(initYearlyCharts, 50);
   }
 }
 
@@ -334,8 +340,8 @@ function renderProgressCircle(percent, size = 92, strokeWidth = 8, color = '#636
   return `
     <div class="relative flex items-center justify-center shrink-0" style="width:${size}px; height:${size}px;">
       <svg width="${size}" height="${size}" class="transform -rotate-90">
-        <circle cx="${size/2}" cy="${size/2}" r="${radius}" stroke="currentColor" stroke-width="${strokeWidth}" fill="transparent" class="text-gray-100 dark:text-surface-700/60" />
-        <circle cx="${size/2}" cy="${size/2}" r="${radius}" stroke="${color}" stroke-width="${strokeWidth}" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" stroke-linecap="round" fill="transparent" class="transition-all duration-700 ease-out" />
+        <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" stroke="currentColor" stroke-width="${strokeWidth}" fill="transparent" class="text-gray-100 dark:text-surface-700/60" />
+        <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" stroke="${color}" stroke-width="${strokeWidth}" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" stroke-linecap="round" fill="transparent" class="transition-all duration-700 ease-out" />
       </svg>
       <div class="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none">
         <span class="font-black text-gray-900 dark:text-white leading-none tracking-tight" style="font-size:${size > 110 ? '1.5rem' : (size > 80 ? '1.15rem' : '0.85rem')}">${clamped}%</span>
@@ -369,7 +375,8 @@ function renderProgressHub() {
   const budget = getBudget();
   const spent = getMonthlySpent();
   const remaining = budget - spent;
-  const streak = getStreak();
+  const streakObj = getStreak();
+  const streak = (typeof streakObj === 'object') ? (streakObj.current || 0) : (streakObj || 0);
   const lifeScoreObj = getLifeScore();
   const lifeScore = typeof lifeScoreObj === 'object' ? lifeScoreObj.score : lifeScoreObj;
   const lifeLabel = typeof lifeScoreObj === 'object' ? lifeScoreObj.label : 'Steady Flow';
@@ -485,7 +492,7 @@ function renderProgressHub() {
             </div>
             <div class="p-3 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 text-center">
               <span class="text-[10px] uppercase font-bold text-gray-400">Cashflow</span>
-              <p class="text-lg font-black text-emerald-400 mt-0.5">₹${(netSavings/1000).toFixed(1)}k</p>
+              <p class="text-lg font-black text-emerald-400 mt-0.5">₹${(netSavings / 1000).toFixed(1)}k</p>
               <span class="text-[9px] text-gray-400">${budgetUsedPct}% budget</span>
             </div>
             <div class="p-3 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 text-center">
@@ -586,7 +593,7 @@ function renderProgressHub() {
               ${renderProgressBar(studyGoalPct, 'bg-blue-600', '🎯 Daily 4-Hour Study Target', `${studyHrs.toFixed(1)} / 4.0 hrs`, studyHrs >= 4 ? 'Goal completed!' : `${(4 - studyHrs).toFixed(1)}h remaining today`)}
               ${renderProgressBar(studyRoutinePct, 'bg-indigo-500', '📋 Scheduled Slots Completed', `${slotsDone}/${studyRoutine.length || 0} slots`)}
               ${topSubjects.length > 0 ? topSubjects.map(([subj, mins]) => `
-                ${renderProgressBar(Math.round((mins/maxSubjectMins)*100), 'bg-teal-500', `📖 ${subj}`, `${(mins/60).toFixed(1)} hrs`)}
+                ${renderProgressBar(Math.round((mins / maxSubjectMins) * 100), 'bg-teal-500', `📖 ${subj}`, `${(mins / 60).toFixed(1)} hrs`)}
               `).join('') : '<p class="text-[11px] text-gray-400">Log your first study session to see subject breakdown.</p>'}
             </div>
           </div>
@@ -618,12 +625,12 @@ function renderProgressHub() {
           </div>
 
           <div class="flex flex-col sm:flex-row items-center gap-5 pt-1">
-            ${renderProgressCircle(budgetUsedPct, 100, 8, budgetUsedPct > 80 ? '#ef4444' : (budgetUsedPct > 60 ? '#f59e0b' : '#10b981'), 'Budget Used', `₹${(spent/1000).toFixed(1)}k`)}
+            ${renderProgressCircle(budgetUsedPct, 100, 8, budgetUsedPct > 80 ? '#ef4444' : (budgetUsedPct > 60 ? '#f59e0b' : '#10b981'), 'Budget Used', `₹${(spent / 1000).toFixed(1)}k`)}
             <div class="flex-1 space-y-2.5 w-full">
               ${renderProgressBar(budgetUsedPct, budgetUsedPct > 80 ? 'bg-rose-500' : 'bg-emerald-500', '💳 Monthly Budget Consumed', `₹${spent.toLocaleString('en-IN')} / ₹${budget.toLocaleString('en-IN')}`, `Safe remaining: ₹${Math.max(0, remaining).toLocaleString('en-IN')}`)}
               ${renderProgressBar(savingsRate, 'bg-accent', '🌱 Savings Efficiency (Income Kept)', `${savingsRate}%`, `₹${netSavings.toLocaleString('en-IN')} saved from ₹${monthlyIncome.toLocaleString('en-IN')} inflow`)}
               ${topCategories.length > 0 ? topCategories.map(([cat, amt]) => `
-                ${renderProgressBar(Math.round((amt/maxCatSpent)*100), 'bg-amber-500', `🏷️ ${cat}`, `₹${amt.toLocaleString('en-IN')}`)}
+                ${renderProgressBar(Math.round((amt / maxCatSpent) * 100), 'bg-amber-500', `🏷️ ${cat}`, `₹${amt.toLocaleString('en-IN')}`)}
               `).join('') : '<p class="text-[11px] text-gray-400">No expenses logged yet this month.</p>'}
             </div>
           </div>
@@ -663,9 +670,49 @@ function renderProgressHub() {
             </div>
           </div>
 
-          <div class="pt-2 border-t border-gray-100 dark:border-surface-700 flex justify-end">
+          <!-- Quick Pending Collections List with Reminder Buttons -->
+          <div class="pt-3 border-t border-gray-100 dark:border-surface-700 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                <i data-lucide="bell-ring" class="w-3.5 h-3.5 text-emerald-600"></i>
+                <span>Pending Friends Dues (${udharRecords.filter(r => r.status === 'pending').length})</span>
+              </span>
+              <button onclick="openUdharReminderModal()" class="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-1 cursor-pointer">
+                <span>Send Any Reminder 💬</span>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              ${udharRecords.filter(r => r.status === 'pending').slice(0, 4).map(r => `
+                <div class="p-2.5 rounded-xl border border-gray-200/70 dark:border-surface-700 bg-gray-50/70 dark:bg-surface-700/30 flex items-center justify-between gap-2 hover:border-emerald-300 transition-all">
+                  <div class="min-w-0">
+                    <p class="text-xs font-bold text-gray-900 dark:text-white truncate">${r.friend}</p>
+                    <p class="text-[10.5px] text-gray-400 truncate">${r.note || (r.type === 'gave' ? 'Money Lent' : 'Borrowed')}</p>
+                  </div>
+                  <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <span class="text-xs font-extrabold ${r.type === 'gave' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+                      ${r.type === 'gave' ? '+' : '-'}₹${r.amount}
+                    </span>
+                    <button onclick="openUdharReminderModal('${r.id}')" class="py-1 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1 cursor-pointer" title="Send WhatsApp Reminder">
+                      <i data-lucide="message-circle" class="w-3 h-3"></i>
+                      <span>Remind</span>
+                    </button>
+                  </div>
+                </div>
+              `).join('') || `
+                <div class="col-span-2 text-center py-2 text-xs text-gray-400">
+                  No active pending dues. <button onclick="openAddUdharModal()" class="text-accent font-semibold underline">Record loan now</button>
+                </div>
+              `}
+            </div>
+          </div>
+
+          <div class="pt-2 border-t border-gray-100 dark:border-surface-700 flex justify-between items-center">
+            <button onclick="openAddUdharModal()" class="text-xs font-semibold text-emerald-600 hover:underline flex items-center gap-1 cursor-pointer">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Loan Record
+            </button>
             <button onclick="navigateTo('udhar')" class="text-xs font-semibold text-accent hover:underline flex items-center gap-1 cursor-pointer">
-              Open Friends Lending <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              Open Full Khata Ledger <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
             </button>
           </div>
         </div>
@@ -702,9 +749,9 @@ function renderProgressHub() {
             <div class="flex-1 space-y-2.5 w-full">
               ${renderProgressBar(attSummary.overallPct, attSummary.overallPct >= 75 ? 'bg-emerald-500' : 'bg-rose-500', 'Overall Attendance Rate', `${attSummary.overallPct}%`, `${attSummary.totalAttended} attended, ${attSummary.totalAbsent} missed`)}
               ${attSubjects.slice(0, 3).map(s => {
-                const b = calculateBunkStatus(s.attended, s.total, s.minRequiredPct);
-                return renderProgressBar(b.pct, b.status === 'safe' ? 'bg-teal-500' : (b.status === 'borderline' ? 'bg-amber-500' : 'bg-rose-500'), `${s.name} (${s.code || ''})`, `${b.pct}%`, b.message);
-              }).join('')}
+    const b = calculateBunkStatus(s.attended, s.total, s.minRequiredPct);
+    return renderProgressBar(b.pct, b.status === 'safe' ? 'bg-teal-500' : (b.status === 'borderline' ? 'bg-amber-500' : 'bg-rose-500'), `${s.name} (${s.code || ''})`, `${b.pct}%`, b.message);
+  }).join('')}
             </div>
           </div>
           `}
@@ -742,9 +789,9 @@ function renderProgressHub() {
             ${renderProgressCircle(goalsCompletionPct, 100, 8, '#8b5cf6', 'Goals Done', `${completedGoals.length}/${goals.length || 0}`)}
             <div class="flex-1 space-y-2.5 w-full">
               ${goals.length > 0 ? goals.slice(0, 3).map(g => {
-                const p = getGoalProgress(g);
-                return renderProgressBar(p, 'bg-purple-600', `🎯 ${g.title}`, `${p}%`, `${g.category}${g.dueDate ? ' • Due ' + g.dueDate : ''}`);
-              }).join('') : '<p class="text-[11px] text-gray-400">No active goals created yet. Add goals in Goals & Plans.</p>'}
+    const p = getGoalProgress(g);
+    return renderProgressBar(p, 'bg-purple-600', `🎯 ${g.title}`, `${p}%`, `${g.category}${g.dueDate ? ' • Due ' + g.dueDate : ''}`);
+  }).join('') : '<p class="text-[11px] text-gray-400">No active goals created yet. Add goals in Goals & Plans.</p>'}
             </div>
           </div>
 
@@ -776,7 +823,7 @@ function renderProgressHub() {
           <div class="flex flex-col sm:flex-row items-center gap-5 pt-1">
             ${renderProgressCircle(dayProgress, 100, 8, '#f59e0b', 'Day Elapsed', dayProgress + '%')}
             <div class="flex-1 space-y-2.5 w-full">
-              ${renderProgressBar(dayProgress, 'bg-amber-500', '⏱️ 24-Hour Day Elapsed', `${dayProgress}%`, `${Math.round((dayProgress/100)*24)} hrs elapsed, ${Math.max(0, 24 - Math.round((dayProgress/100)*24))} hrs remaining`)}
+              ${renderProgressBar(dayProgress, 'bg-amber-500', '⏱️ 24-Hour Day Elapsed', `${dayProgress}%`, `${Math.round((dayProgress / 100) * 24)} hrs elapsed, ${Math.max(0, 24 - Math.round((dayProgress / 100) * 24))} hrs remaining`)}
               ${renderProgressBar(Math.min(100, Math.round((new Date().getHours() / 18) * 100)), 'bg-indigo-500', '☀️ Prime Active Hours (08:00 - 18:00)', 'Work & Focus Window')}
               ${renderProgressBar(Math.min(100, Math.round((streak / 7) * 100)), 'bg-emerald-500', '📅 Weekly Consistency Pace', `${Math.min(7, streak)}/7 Days Active`)}
             </div>
@@ -869,7 +916,8 @@ function renderDashboard() {
   const spent = getMonthlySpent();
   const remaining = budget - spent;
   const activeGoals = getActiveGoals();
-  const streak = getStreak();
+  const streakObj = getStreak();
+  const streak = (typeof streakObj === 'object') ? (streakObj.current || 0) : (streakObj || 0);
   const userName = getUserFirstName();
   const lifeScore = getLifeScore();
   const safeSpend = getSafeDailySpend();
@@ -902,12 +950,42 @@ function renderDashboard() {
   ];
   const dailyQuote = quotes[now.getDate() % quotes.length];
 
+  // Auto Due Date Reminders Check
+  const allUdhar = getUdharRecords();
+  const overdueOrDueUdhar = allUdhar.filter(r => {
+    if (r.status !== 'pending' || r.type !== 'gave' || !r.dueDate) return false;
+    return new Date(r.dueDate) <= new Date(todayStr());
+  });
+
   // SVG Gauge calculations for LifeScore
   const radius = 24;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (lifeScore.score / 100) * circumference;
 
   return `
+    ${overdueOrDueUdhar.length > 0 ? `
+    <!-- Auto Due Date Reminder Alert -->
+    <div class="mb-6 p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="bell-ring" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h4 class="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
+            <span>⏰ Auto Due Alert: ${overdueOrDueUdhar.length} friend payment${overdueOrDueUdhar.length > 1 ? 's are' : ' is'} due or overdue!</span>
+          </h4>
+          <p class="text-[11px] text-gray-500 dark:text-gray-400">
+            ${overdueOrDueUdhar.map(r => `${r.friend} (₹${r.amount})`).join(', ')}
+          </p>
+        </div>
+      </div>
+      <button onclick="openUdharReminderModal('${overdueOrDueUdhar[0].id}')" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap">
+        <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
+        <span>Send WhatsApp Reminder (1-Click)</span>
+      </button>
+    </div>
+    ` : ''}
+
     <!-- 1. HERO COMMAND CENTER BANNER -->
     <div class="hero-glass rounded-2xl p-6 sm:p-7 border border-indigo-200/50 dark:border-indigo-900/40 mb-8 shadow-sm">
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -1085,13 +1163,12 @@ function renderDashboard() {
           </div>
           <div class="space-y-2">
             ${studyRoutine.slice(0, 4).map(s => {
-              const isDone = !!studyChecks[s.id];
-              return `
-                <div class="flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                  isDone 
-                    ? 'bg-emerald-500/5 dark:bg-emerald-950/10 border-emerald-500/30' 
-                    : 'bg-gray-50 dark:bg-surface-700/40 border-gray-100 dark:border-surface-600 hover:border-accent/40'
-                }">
+    const isDone = !!studyChecks[s.id];
+    return `
+                <div class="flex items-center gap-3 p-3 rounded-xl border transition-all ${isDone
+        ? 'bg-emerald-500/5 dark:bg-emerald-950/10 border-emerald-500/30'
+        : 'bg-gray-50 dark:bg-surface-700/40 border-gray-100 dark:border-surface-600 hover:border-accent/40'
+      }">
                   <div onclick="toggleDashboardStudyCheck('${s.id}')" class="routine-checkbox ${isDone ? 'checked !bg-emerald-600 !border-emerald-600' : ''}" title="Toggle Complete"></div>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-1.5">
@@ -1105,7 +1182,7 @@ function renderDashboard() {
                   </button>
                 </div>
               `;
-            }).join('')}
+  }).join('')}
           </div>
         </div>
 
@@ -1120,13 +1197,12 @@ function renderDashboard() {
           </div>
           <div class="space-y-2">
             ${routine.slice(0, 4).map(r => {
-              const isDone = !!routineChecks[r.id];
-              return `
-                <div class="flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                  isDone 
-                    ? 'bg-purple-500/5 dark:bg-purple-950/10 border-purple-500/30' 
-                    : 'bg-gray-50 dark:bg-surface-700/40 border-gray-100 dark:border-surface-600 hover:border-purple-500/40'
-                }">
+    const isDone = !!routineChecks[r.id];
+    return `
+                <div class="flex items-center gap-3 p-3 rounded-xl border transition-all ${isDone
+        ? 'bg-purple-500/5 dark:bg-purple-950/10 border-purple-500/30'
+        : 'bg-gray-50 dark:bg-surface-700/40 border-gray-100 dark:border-surface-600 hover:border-purple-500/40'
+      }">
                   <div onclick="toggleDashboardRoutineCheck('${r.id}')" class="routine-checkbox ${isDone ? 'checked !bg-purple-600 !border-purple-600' : ''}" title="Toggle Complete"></div>
                   <div class="flex-1 min-w-0">
                     <p class="text-xs font-semibold text-gray-800 dark:text-gray-200 ${isDone ? 'line-through text-gray-400 dark:text-gray-500' : ''}">${r.name}</p>
@@ -1135,7 +1211,7 @@ function renderDashboard() {
                   ${isDone ? '<span class="text-[10px] font-bold text-purple-500 bg-purple-100 dark:bg-purple-950/40 px-1.5 py-0.5 rounded">Done</span>' : ''}
                 </div>
               `;
-            }).join('')}
+  }).join('')}
           </div>
         </div>
       </div>
@@ -1196,15 +1272,15 @@ function renderDashboard() {
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           ${getGoals().slice(0, 4).map(g => {
-            const progress = getGoalProgress(g);
-            const days = getDaysLeft(g.dueDate);
-            return `
+    const progress = getGoalProgress(g);
+    const days = getDaysLeft(g.dueDate);
+    return `
               <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-surface-700/40 border border-gray-100 dark:border-surface-600 hover:border-accent/40 transition-colors">
                 <div class="flex items-start justify-between gap-2 mb-1.5">
                   <p class="text-xs font-bold text-gray-800 dark:text-gray-200 line-clamp-1">${g.title}</p>
-                  ${days > 0 
-                    ? `<span class="badge ${days <= 7 ? 'badge-red' : days <= 30 ? 'badge-yellow' : 'badge-green'} text-[10px]">${days}d left</span>` 
-                    : `<span class="badge badge-red text-[10px]">Overdue</span>`}
+                  ${days > 0
+        ? `<span class="badge ${days <= 7 ? 'badge-red' : days <= 30 ? 'badge-yellow' : 'badge-green'} text-[10px]">${days}d left</span>`
+        : `<span class="badge badge-red text-[10px]">Overdue</span>`}
                 </div>
                 <div class="w-full h-1.5 bg-gray-200 dark:bg-surface-600 rounded-full overflow-hidden my-2">
                   <div class="h-full ${progress === 100 ? 'bg-success' : 'bg-accent'} rounded-full transition-all" style="width: ${progress}%"></div>
@@ -1215,7 +1291,7 @@ function renderDashboard() {
                 </div>
               </div>
             `;
-          }).join('')}
+  }).join('')}
         </div>
       </div>
 
@@ -1351,7 +1427,7 @@ function handleMarkAttendance(subjectId, status) {
   if (!updated) return;
 
   const bunk = calculateBunkStatus(updated.attended, updated.total, updated.minRequiredPct);
-  
+
   if (status === 'present') {
     showToast(`Marked Present for ${updated.name} (${bunk.pct}%) ✅`, 'success');
   } else if (status === 'absent') {
@@ -1477,15 +1553,15 @@ function createPrintableAttendanceElement() {
         </thead>
         <tbody>
           ${subjects.map((s, idx) => {
-            const b = calculateBunkStatus(s.attended, s.total, s.minRequiredPct);
-            let rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-            let statusPill = `<span style="background: #d1fae5; color: #065f46; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-size: 9.5px;">SAFE</span>`;
-            if (b.status === 'danger') {
-              statusPill = `<span style="background: #fee2e2; color: #991b1b; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-size: 9.5px;">SHORTAGE</span>`;
-            } else if (b.status === 'borderline') {
-              statusPill = `<span style="background: #fef3c7; color: #92400e; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-size: 9.5px;">WARNING</span>`;
-            }
-            return `
+    const b = calculateBunkStatus(s.attended, s.total, s.minRequiredPct);
+    let rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+    let statusPill = `<span style="background: #d1fae5; color: #065f46; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-size: 9.5px;">SAFE</span>`;
+    if (b.status === 'danger') {
+      statusPill = `<span style="background: #fee2e2; color: #991b1b; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-size: 9.5px;">SHORTAGE</span>`;
+    } else if (b.status === 'borderline') {
+      statusPill = `<span style="background: #fef3c7; color: #92400e; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-size: 9.5px;">WARNING</span>`;
+    }
+    return `
               <tr style="background: ${rowBg}; border-bottom: 1px solid #e2e8f0;">
                 <td style="padding: 7px 8px; font-family: monospace; font-weight: 700; color: #4338ca;">${s.code || '-'}</td>
                 <td style="padding: 7px 8px; font-weight: 600; color: #0f172a;">${s.name}</td>
@@ -1504,7 +1580,7 @@ function createPrintableAttendanceElement() {
                 </td>
               </tr>
             `;
-          }).join('')}
+  }).join('')}
         </tbody>
       </table>
     </div>
@@ -1526,10 +1602,10 @@ function createPrintableAttendanceElement() {
         </thead>
         <tbody>
           ${logs.slice(0, 10).map((l, i) => {
-            const dt = new Date(l.date || l.timestamp);
-            const dtFormatted = dt.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            let stColor = l.status === 'present' ? '#059669' : (l.status === 'absent' ? '#dc2626' : '#64748b');
-            return `
+    const dt = new Date(l.date || l.timestamp);
+    const dtFormatted = dt.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) + ' ' + dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let stColor = l.status === 'present' ? '#059669' : (l.status === 'absent' ? '#dc2626' : '#64748b');
+    return `
               <tr style="border-bottom: 1px solid #f1f5f9; background: ${i % 2 === 0 ? '#fff' : '#f8fafc'};">
                 <td style="padding: 4px 8px; color: #64748b;">${dtFormatted}</td>
                 <td style="padding: 4px 8px; font-family: monospace; font-weight: 600;">${l.code || '-'}</td>
@@ -1537,7 +1613,7 @@ function createPrintableAttendanceElement() {
                 <td style="padding: 4px 8px; text-align: center; font-weight: 800; text-transform: uppercase; color: ${stColor};">${l.status}</td>
               </tr>
             `;
-          }).join('')}
+  }).join('')}
         </tbody>
       </table>
     </div>
@@ -1562,7 +1638,7 @@ function downloadAttendancePDF() {
 
   showToast('Generating official Class Attendance PDF...', 'info');
   const printable = createPrintableAttendanceElement();
-  
+
   // Position offscreen so browser layout engine can calculate styles
   printable.style.position = 'fixed';
   printable.style.left = '-9999px';
@@ -1702,6 +1778,10 @@ function renderAttendance() {
                   <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-300"></i>
                   <span>Extract PDF</span>
                 </button>
+                <button onclick="openBackupModal(); switchBackupTab('autoreset');" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 transition-all cursor-pointer backdrop-blur-md active:scale-95" title="View 1st-of-month auto reset settings & archives">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-indigo-300"></i>
+                  <span>Auto-Resets 1st of Month</span>
+                </button>
               </div>
               <h2 class="text-2xl font-black tracking-tight">Class Attendance & Bunk Tracker</h2>
               <p class="text-xs text-gray-300 max-w-md leading-relaxed">
@@ -1791,22 +1871,22 @@ function renderAttendance() {
             <button onclick="setAttendanceFilter('all')" class="text-xs text-accent font-semibold underline">Show All Courses</button>
           </div>
         ` : filtered.map(s => {
-          const bunk = calculateBunkStatus(s.attended, s.total, s.minRequiredPct);
-          let cardColor = '#10b981';
-          let badgeBg = 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-          let adviceBoxClass = 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-300';
-          
-          if (bunk.status === 'danger') {
-            cardColor = '#ef4444';
-            badgeBg = 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border-rose-200 dark:border-rose-800';
-            adviceBoxClass = 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-200/70 dark:border-rose-800/40 text-rose-800 dark:text-rose-300';
-          } else if (bunk.status === 'borderline') {
-            cardColor = '#f59e0b';
-            badgeBg = 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300 border-amber-200 dark:border-amber-800';
-            adviceBoxClass = 'bg-amber-50/70 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-800/40 text-amber-800 dark:text-amber-300';
-          }
+    const bunk = calculateBunkStatus(s.attended, s.total, s.minRequiredPct);
+    let cardColor = '#10b981';
+    let badgeBg = 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
+    let adviceBoxClass = 'bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-300';
 
-          return `
+    if (bunk.status === 'danger') {
+      cardColor = '#ef4444';
+      badgeBg = 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border-rose-200 dark:border-rose-800';
+      adviceBoxClass = 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-200/70 dark:border-rose-800/40 text-rose-800 dark:text-rose-300';
+    } else if (bunk.status === 'borderline') {
+      cardColor = '#f59e0b';
+      badgeBg = 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+      adviceBoxClass = 'bg-amber-50/70 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-800/40 text-amber-800 dark:text-amber-300';
+    }
+
+    return `
             <div class="p-5 rounded-2xl bg-white dark:bg-surface-800 border border-gray-100 dark:border-surface-700 shadow-sm space-y-4 hover:border-accent/40 transition-all">
               
               <!-- Card Header -->
@@ -1865,7 +1945,7 @@ function renderAttendance() {
 
             </div>
           `;
-        }).join(''))}
+  }).join(''))}
       </div>
 
       <!-- Recent Class History Log -->
@@ -1881,19 +1961,19 @@ function renderAttendance() {
 
         <div class="divide-y divide-gray-100 dark:divide-surface-700">
           ${logs.slice(0, 8).map(l => {
-            const d = new Date(l.date || l.timestamp);
-            const timeFormatted = d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            let badge = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300';
-            let icon = 'check-circle';
-            if (l.status === 'absent') {
-              badge = 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300';
-              icon = 'x-circle';
-            } else if (l.status === 'cancelled') {
-              badge = 'bg-gray-100 text-gray-600 dark:bg-surface-700 dark:text-gray-300';
-              icon = 'slash';
-            }
+    const d = new Date(l.date || l.timestamp);
+    const timeFormatted = d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let badge = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300';
+    let icon = 'check-circle';
+    if (l.status === 'absent') {
+      badge = 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300';
+      icon = 'x-circle';
+    } else if (l.status === 'cancelled') {
+      badge = 'bg-gray-100 text-gray-600 dark:bg-surface-700 dark:text-gray-300';
+      icon = 'slash';
+    }
 
-            return `
+    return `
               <div class="py-2.5 flex items-center justify-between text-xs">
                 <div class="flex items-center gap-2.5">
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${badge} flex items-center gap-1">
@@ -1908,7 +1988,7 @@ function renderAttendance() {
                 <span class="text-[11px] text-gray-400">${timeFormatted}</span>
               </div>
             `;
-          }).join('')}
+  }).join('')}
         </div>
       </div>
       ` : ''}
@@ -1922,7 +2002,8 @@ function renderAttendance() {
 function renderRoutine() {
   const routine = getRoutine();
   const checks = getTodayChecks();
-  const streak = getStreak();
+  const streakObj = getStreak();
+  const streak = (typeof streakObj === 'object') ? (streakObj.current || 0) : (streakObj || 0);
   const completion = getRoutineCompletion();
   const periods = ['Morning', 'Afternoon', 'Evening', 'Night'];
   const periodEmojis = { Morning: '🌅', Afternoon: '☀️', Evening: '🌆', Night: '🌙' };
@@ -1950,9 +2031,9 @@ function renderRoutine() {
 
     <div class="space-y-6">
       ${periods.map(period => {
-        const tasks = routine.filter(r => r.period === period);
-        if (tasks.length === 0) return '';
-        return `
+    const tasks = routine.filter(r => r.period === period);
+    if (tasks.length === 0) return '';
+    return `
           <div>
             <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
               ${periodEmojis[period]} ${period}
@@ -1971,7 +2052,7 @@ function renderRoutine() {
             </div>
           </div>
         `;
-      }).join('')}
+  }).join('')}
     </div>
   `;
 }
@@ -1980,7 +2061,7 @@ function toggleRoutineCheck(taskId) {
   const checks = getTodayChecks();
   const newVal = !checks[taskId];
   setRoutineCheck(taskId, newVal);
-  
+
   const routine = getRoutine();
   const updatedChecks = getTodayChecks();
   const allDone = routine.every(r => updatedChecks[r.id]);
@@ -1988,7 +2069,7 @@ function toggleRoutineCheck(taskId) {
     setStreak(getStreak() + 1);
     showToast('🎉 All tasks done! Streak updated!', 'success');
   }
-  
+
   renderPage('routine');
 }
 
@@ -2017,8 +2098,8 @@ function renderStudyRoutineSection() {
   const periods = ['Morning', 'Afternoon', 'Evening', 'Night'];
   const periodEmojis = { Morning: '🌅', Afternoon: '☀️', Evening: '🌆', Night: '🌙' };
 
-  const filtered = currentStudyFilter === 'All' 
-    ? routine 
+  const filtered = currentStudyFilter === 'All'
+    ? routine
     : routine.filter(r => r.period === currentStudyFilter);
 
   const counts = {
@@ -2076,18 +2157,17 @@ function renderStudyRoutineSection() {
       <!-- Period Filter Pills -->
       <div class="flex flex-wrap items-center gap-1.5 mb-4">
         ${['All', 'Morning', 'Afternoon', 'Evening', 'Night'].map(p => {
-          const isActive = currentStudyFilter === p;
-          const label = p === 'All' ? 'All Slots' : `${periodEmojis[p]} ${p}`;
-          return `
-            <button onclick="setStudyFilter('${p}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              isActive 
-                ? 'bg-accent text-white shadow-sm' 
-                : 'bg-gray-100 dark:bg-surface-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-surface-600'
-            }">
+    const isActive = currentStudyFilter === p;
+    const label = p === 'All' ? 'All Slots' : `${periodEmojis[p]} ${p}`;
+    return `
+            <button onclick="setStudyFilter('${p}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${isActive
+        ? 'bg-accent text-white shadow-sm'
+        : 'bg-gray-100 dark:bg-surface-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-surface-600'
+      }">
               ${label} <span class="opacity-75 text-[11px]">(${counts[p] || 0})</span>
             </button>
           `;
-        }).join('')}
+  }).join('')}
       </div>
 
       <!-- Study Slot Cards -->
@@ -2097,14 +2177,13 @@ function renderStudyRoutineSection() {
             No study slots scheduled for this period. Click "+ Add Study Slot" to add one!
           </div>
         ` : filtered.map(slot => {
-          const isDone = !!checks[slot.id];
-          const colorClass = subjectColors[slot.subject] || 'bg-gray-100 dark:bg-surface-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600';
-          return `
-            <div class="group relative flex items-start gap-3.5 p-3.5 rounded-xl border transition-all ${
-              isDone 
-                ? 'bg-emerald-500/5 dark:bg-emerald-950/10 border-emerald-500/30' 
-                : 'bg-white dark:bg-surface-700/40 border-gray-200 dark:border-surface-600 hover:border-accent/40'
-            }">
+    const isDone = !!checks[slot.id];
+    const colorClass = subjectColors[slot.subject] || 'bg-gray-100 dark:bg-surface-700 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600';
+    return `
+            <div class="group relative flex items-start gap-3.5 p-3.5 rounded-xl border transition-all ${isDone
+        ? 'bg-emerald-500/5 dark:bg-emerald-950/10 border-emerald-500/30'
+        : 'bg-white dark:bg-surface-700/40 border-gray-200 dark:border-surface-600 hover:border-accent/40'
+      }">
               <!-- Checkbox -->
               <div onclick="toggleStudySlotCheck('${slot.id}')" class="routine-checkbox mt-0.5 ${isDone ? 'checked !bg-emerald-600 !border-emerald-600' : ''}" title="Mark completed"></div>
 
@@ -2135,7 +2214,7 @@ function renderStudyRoutineSection() {
               </div>
             </div>
           `;
-        }).join('')}
+  }).join('')}
       </div>
     </div>
   `;
@@ -2273,9 +2352,9 @@ function renderStudy() {
             </button>
           </div>
           <div class="flex gap-2">
-            <button onclick="setPomodoro(25)" class="px-3 py-1.5 rounded-lg text-xs font-medium ${pomodoroSeconds === 25*60 && !pomodoroRunning ? 'bg-accent/10 text-accent' : 'bg-gray-100 dark:bg-surface-700 text-gray-500'} transition-all">25 min</button>
-            <button onclick="setPomodoro(45)" class="px-3 py-1.5 rounded-lg text-xs font-medium ${pomodoroSeconds === 45*60 && !pomodoroRunning ? 'bg-accent/10 text-accent' : 'bg-gray-100 dark:bg-surface-700 text-gray-500'} transition-all">45 min</button>
-            <button onclick="setPomodoro(5)" class="px-3 py-1.5 rounded-lg text-xs font-medium ${pomodoroSeconds === 5*60 && !pomodoroRunning ? 'bg-accent/10 text-accent' : 'bg-gray-100 dark:bg-surface-700 text-gray-500'} transition-all">5 min</button>
+            <button onclick="setPomodoro(25)" class="px-3 py-1.5 rounded-lg text-xs font-medium ${pomodoroSeconds === 25 * 60 && !pomodoroRunning ? 'bg-accent/10 text-accent' : 'bg-gray-100 dark:bg-surface-700 text-gray-500'} transition-all">25 min</button>
+            <button onclick="setPomodoro(45)" class="px-3 py-1.5 rounded-lg text-xs font-medium ${pomodoroSeconds === 45 * 60 && !pomodoroRunning ? 'bg-accent/10 text-accent' : 'bg-gray-100 dark:bg-surface-700 text-gray-500'} transition-all">45 min</button>
+            <button onclick="setPomodoro(5)" class="px-3 py-1.5 rounded-lg text-xs font-medium ${pomodoroSeconds === 5 * 60 && !pomodoroRunning ? 'bg-accent/10 text-accent' : 'bg-gray-100 dark:bg-surface-700 text-gray-500'} transition-all">5 min</button>
           </div>
         </div>
       </div>
@@ -2408,7 +2487,7 @@ function playAlertSound() {
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.5);
-  } catch(e) {}
+  } catch (e) { }
 }
 
 // ========== MONEY & CASHFLOW HUB ==========
@@ -2439,7 +2518,7 @@ function renderExpense() {
   const netSavings = monthlyIncome - spent;
   const remaining = budget - spent;
   const pct = Math.min((spent / budget) * 100, 100);
-  
+
   let barColor = 'bg-success';
   let statusText = 'On Track';
   let statusBadge = 'badge-green';
@@ -2753,8 +2832,8 @@ function renderCombinedTabContent(incomes, expenses) {
   return `
     <div class="space-y-2.5">
       ${merged.length === 0 ? '<p class="text-center py-8 text-gray-400 text-xs">No transactions recorded yet.</p>' : merged.map(t => {
-        const isIn = t.flow === 'in';
-        return `
+    const isIn = t.flow === 'in';
+    return `
           <div class="flex items-center justify-between p-3.5 rounded-xl bg-gray-50 dark:bg-surface-700/50 hover:bg-gray-100 dark:hover:bg-surface-700 border border-gray-200/60 dark:border-surface-600/60 transition-all">
             <div class="flex items-center gap-3 min-w-0">
               <div class="w-10 h-10 rounded-xl ${isIn ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'} flex items-center justify-center text-lg flex-shrink-0">
@@ -2777,7 +2856,7 @@ function renderCombinedTabContent(incomes, expenses) {
             </span>
           </div>
         `;
-      }).join('')}
+  }).join('')}
     </div>
   `;
 }
@@ -2794,10 +2873,10 @@ function renderSourcesTabContent(incomes, sourceTotals, totalIncome) {
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         ${sources.map(src => {
-          const total = sourceTotals[src];
-          const pct = totalIncome > 0 ? Math.round((total / totalIncome) * 100) : 0;
-          const count = incomes.filter(i => i.source === src).length;
-          return `
+    const total = sourceTotals[src];
+    const pct = totalIncome > 0 ? Math.round((total / totalIncome) * 100) : 0;
+    const count = incomes.filter(i => i.source === src).length;
+    return `
             <div class="p-5 rounded-2xl border border-gray-200/70 dark:border-surface-700 bg-white dark:bg-surface-800/60 shadow-xs space-y-3">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2.5">
@@ -2819,7 +2898,7 @@ function renderSourcesTabContent(incomes, sourceTotals, totalIncome) {
               </div>
             </div>
           `;
-        }).join('')}
+  }).join('')}
       </div>
     </div>
   `;
@@ -2893,13 +2972,13 @@ function deleteConfirm(id) {
   const row = document.getElementById('exp-' + id);
   if (row) {
     row.classList.add('deleting');
-    setTimeout(function() {
+    setTimeout(function () {
       deleteExpense(id);
       showToast('Transaction deleted successfully', 'success');
       const filterEl = document.getElementById('expense-cat-filter');
       const cat = filterEl ? filterEl.value : 'all';
       let exps = getExpenses();
-      if (cat !== 'all') exps = exps.filter(function(e) { return e.category === cat; });
+      if (cat !== 'all') exps = exps.filter(function (e) { return e.category === cat; });
       const el = document.getElementById('expense-list');
       if (el) el.innerHTML = renderExpenseList(exps);
       lucide.createIcons();
@@ -2937,7 +3016,7 @@ function deleteIncomeConfirm(id) {
   const row = document.getElementById('inc-' + id);
   if (row) {
     row.classList.add('deleting');
-    setTimeout(function() {
+    setTimeout(function () {
       deleteIncome(id);
       showToast('Income entry deleted successfully', 'success');
       if (currentPage === 'expense' || currentPage === 'dashboard') {
@@ -3037,8 +3116,8 @@ function renderGoals() {
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       ${categories.map(cat => {
-        const catGoals = goals.filter(g => g.category === cat);
-        return `
+    const catGoals = goals.filter(g => g.category === cat);
+    return `
           <div class="kanban-col">
             <div class="flex items-center gap-2 mb-4">
               <span class="text-lg">${catEmojis[cat]}</span>
@@ -3047,9 +3126,9 @@ function renderGoals() {
             </div>
             <div class="space-y-4">
               ${catGoals.map(g => {
-                const progress = getGoalProgress(g);
-                const days = getDaysLeft(g.dueDate);
-                return `
+      const progress = getGoalProgress(g);
+      const days = getDaysLeft(g.dueDate);
+      return `
                   <div class="card goal-card p-5">
                     <div class="flex items-start justify-between mb-3">
                       <h5 class="text-sm font-semibold leading-tight flex-1 pr-2">${g.title}</h5>
@@ -3071,12 +3150,12 @@ function renderGoals() {
                     </div>
                   </div>
                 `;
-              }).join('')}
+    }).join('')}
               ${catGoals.length === 0 ? `<div class="p-8 text-center text-sm text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">No goals yet</div>` : ''}
             </div>
           </div>
         `;
-      }).join('')}
+  }).join('')}
     </div>
 
     <div id="add-goal-form" class="hidden mt-8 card p-6">
@@ -3119,7 +3198,7 @@ function toggleMilestone(goalId, milestoneId) {
   if (!ms) return;
   ms.done = !ms.done;
   saveGoals(goals);
-  
+
   const progress = getGoalProgress(goal);
   if (progress === 100) {
     showToast(`🎉 "${goal.title}" completed!`, 'success');
@@ -3369,6 +3448,11 @@ function getGreeting() {
 function showToast(msg, type = 'info') {
   const container = document.getElementById('toast-container');
   if (!container) return;
+  // Deduplicate: avoid stacking identical consecutive messages
+  const existingToasts = container.querySelectorAll('.toast span:last-child');
+  for (const t of existingToasts) {
+    if (t.textContent === msg) return;
+  }
   const icons = { success: '✅', error: '❌', info: 'ℹ️' };
   const toast = document.createElement('div');
   toast.className = 'toast';
@@ -3386,7 +3470,7 @@ function openDbModal() {
   const modal = document.getElementById('db-modal');
   if (!modal) return;
   modal.classList.remove('hidden');
-  
+
   const config = getSupabaseConfig();
   const urlInput = document.getElementById('supabase-url-input');
   const keyInput = document.getElementById('supabase-key-input');
@@ -3446,7 +3530,7 @@ async function handleTestDbConnection() {
   const url = document.getElementById('supabase-url-input')?.value.trim();
   const key = document.getElementById('supabase-key-input')?.value.trim();
   const testBtn = document.getElementById('btn-test-db');
-  
+
   if (!url || !key) {
     showToast('Please enter both Supabase URL and Anon Key', 'error');
     return;
@@ -3460,6 +3544,8 @@ async function handleTestDbConnection() {
     if (res.success) {
       if (res.tableMissing) {
         showToast(res.message, 'info');
+        const details = document.querySelector('#db-modal details');
+        if (details) details.open = true;
       } else {
         showToast(res.message, 'success');
       }
@@ -3491,6 +3577,14 @@ async function handleSaveDbConnection() {
     const test = await testSupabaseConnection(url, key);
     if (!test.success) {
       showToast(test.message || 'Could not connect. Please verify credentials.', 'error');
+      if (saveBtn) saveBtn.innerHTML = originalContent;
+      return;
+    }
+
+    if (test.tableMissing) {
+      showToast('⚠️ "lifeflow_sync" table not found in Supabase! Please run the SQL Script below first.', 'error');
+      const details = document.querySelector('#db-modal details');
+      if (details) details.open = true;
       if (saveBtn) saveBtn.innerHTML = originalContent;
       return;
     }
@@ -3587,14 +3681,42 @@ document.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();
   refreshDbStatusUI();
 
+  // Check 1st-of-month auto reset
+  const resetResult = checkMonthlyAutoReset(false);
+
   // Check if user is already logged in
   if (isLoggedIn()) {
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     updateSidebarUser();
     navigateTo('dashboard');
-    setTimeout(function() { triggerWebsiteAutoSend(false); }, 1500);
+    setTimeout(function () { triggerWebsiteAutoSend(false); }, 1500);
+
+    if (resetResult && resetResult.resetOccurred) {
+      setTimeout(() => {
+        showToast(`🎉 New Month Started! All totals auto-reset for ${resetResult.newMonthLabel}. Previous month (${resetResult.prevMonthLabel}) archived safely.`, 'success', 8000);
+      }, 1000);
+    }
   }
+
+  // Periodic check for 1st-of-month rollover if app is kept open
+  setInterval(() => {
+    const res = checkMonthlyAutoReset(false);
+    if (res && res.resetOccurred) {
+      if (typeof currentPage !== 'undefined') renderPage(currentPage);
+      showToast('🗓️ Monthly totals auto-reset for the 1st of the month!', 'info', 6000);
+    }
+  }, 1800000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      const res = checkMonthlyAutoReset(false);
+      if (res && res.resetOccurred) {
+        if (typeof currentPage !== 'undefined') renderPage(currentPage);
+        showToast('🗓️ Welcome back! Monthly totals auto-reset for the 1st of the month.', 'info', 6000);
+      }
+    }
+  });
 });
 
 // Close modal on overlay click
@@ -3716,10 +3838,16 @@ function renderUdhar() {
           </h3>
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Track every rupee given or borrowed, with instant settlement & reminders</p>
         </div>
-        <button onclick="openAddUdharModal()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all hover:shadow-emerald-600/25 active:scale-95 flex items-center gap-1.5 cursor-pointer">
-          <i data-lucide="plus" class="w-4 h-4"></i>
-          <span>+ Add Loan Record</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="openUdharReminderModal()" class="px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer" title="Send WhatsApp Reminder">
+            <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+            <span>💬 Send WhatsApp Reminder</span>
+          </button>
+          <button onclick="openAddUdharModal()" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all hover:shadow-emerald-600/25 active:scale-95 flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>+ Add Loan Record</span>
+          </button>
+        </div>
       </div>
 
       <!-- Filter Tabs -->
@@ -3747,25 +3875,33 @@ function renderUdhar() {
               <p class="text-sm font-semibold text-gray-600 dark:text-gray-300">No loan records in this category</p>
               <p class="text-xs text-gray-400 mt-0.5">Click below to record a new loan or borrowed money.</p>
             </div>
-            <button onclick="openAddUdharModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all hover:shadow-emerald-600/25 active:scale-95 inline-flex items-center gap-1.5 cursor-pointer">
-              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-              <span>+ Add Loan Record</span>
-            </button>
+            <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
+              <button onclick="openUdharReminderModal()" class="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold transition-all active:scale-95 inline-flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="message-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
+                <span>Send Quick Reminder</span>
+              </button>
+              <button onclick="openAddUdharModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all hover:shadow-emerald-600/25 active:scale-95 inline-flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>+ Add Loan Record</span>
+              </button>
+              <button onclick="seedSampleUdharData()" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-surface-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-medium transition-all cursor-pointer">
+                Load Sample Friends Data
+              </button>
+            </div>
           </div>
         ` : filtered.map(r => {
-          const isGave = r.type === 'gave';
-          const isSettled = r.status === 'settled';
-          const initials = getInitials(r.friend);
-          const colorGradient = getAvatarColor(r.friend);
+    const isGave = r.type === 'gave';
+    const isSettled = r.status === 'settled';
+    const initials = getInitials(r.friend);
+    const colorGradient = getAvatarColor(r.friend);
 
-          return `
-            <div class="group flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 rounded-xl border transition-all ${
-              isSettled 
-                ? 'bg-gray-50/60 dark:bg-surface-700/20 border-gray-200/60 dark:border-surface-700 opacity-70' 
-                : isGave 
-                  ? 'bg-white dark:bg-surface-700/40 border-gray-200 dark:border-surface-600 hover:border-emerald-500/40' 
-                  : 'bg-white dark:bg-surface-700/40 border-gray-200 dark:border-surface-600 hover:border-rose-500/40'
-            }">
+    return `
+            <div class="group flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 p-4 rounded-xl border transition-all ${isSettled
+        ? 'bg-gray-50/60 dark:bg-surface-700/20 border-gray-200/60 dark:border-surface-700 opacity-70'
+        : isGave
+          ? 'bg-white dark:bg-surface-700/40 border-gray-200 dark:border-surface-600 hover:border-emerald-500/40'
+          : 'bg-white dark:bg-surface-700/40 border-gray-200 dark:border-surface-600 hover:border-rose-500/40'
+      }">
               <!-- Left: Friend Avatar + Details -->
               <div class="flex items-start gap-3.5 min-w-0">
                 <!-- Avatar -->
@@ -3777,13 +3913,12 @@ function renderUdhar() {
                 <div class="min-w-0">
                   <div class="flex flex-wrap items-center gap-2 mb-1">
                     <span class="text-sm font-bold text-gray-900 dark:text-white">${r.friend}</span>
-                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                      isSettled 
-                        ? 'bg-gray-200 dark:bg-surface-600 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-surface-500'
-                        : isGave 
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
-                          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
-                    }">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-md border ${isSettled
+        ? 'bg-gray-200 dark:bg-surface-600 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-surface-500'
+        : isGave
+          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+          : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+      }">
                       ${isSettled ? '✓ Settled' : isGave ? '🟢 Gave (Will Get)' : '🔴 Took (Will Pay)'}
                     </span>
                     <span class="text-[11px] text-gray-400">• ${formatDate(r.date)}</span>
@@ -3792,6 +3927,13 @@ function renderUdhar() {
                   <p class="text-xs text-gray-600 dark:text-gray-300 mb-1 ${isSettled ? 'line-through text-gray-400 dark:text-gray-500' : ''}">
                     ${r.note || 'No description'}
                   </p>
+
+                  ${r.phone ? `
+                    <div class="inline-flex items-center gap-1 text-[10.5px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md font-medium border border-emerald-200/70 dark:border-emerald-800/40 mb-1">
+                      <i data-lucide="phone" class="w-2.5 h-2.5"></i>
+                      <span>${r.phone}</span>
+                    </div>
+                  ` : ''}
 
                   ${r.dueDate ? `
                     <div class="flex items-center gap-1 text-[10.5px] text-amber-600 dark:text-amber-400 font-medium">
@@ -3811,13 +3953,12 @@ function renderUdhar() {
               <!-- Right: Amount & Actions -->
               <div class="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100 dark:border-surface-700">
                 <div class="text-left sm:text-right">
-                  <div class="text-lg font-black tracking-tight ${
-                    isSettled 
-                      ? 'text-gray-400 line-through' 
-                      : isGave 
-                        ? 'text-emerald-600 dark:text-emerald-400' 
-                        : 'text-rose-600 dark:text-rose-400'
-                  }">
+                  <div class="text-lg font-black tracking-tight ${isSettled
+        ? 'text-gray-400 line-through'
+        : isGave
+          ? 'text-emerald-600 dark:text-emerald-400'
+          : 'text-rose-600 dark:text-rose-400'
+      }">
                     ${isGave ? '+' : '-'}₹${r.amount.toLocaleString('en-IN')}
                   </div>
                   <div class="text-[10.5px] text-gray-400">
@@ -3827,6 +3968,10 @@ function renderUdhar() {
 
                 <div class="flex items-center gap-1.5">
                   ${!isSettled ? `
+                    <button onclick="openUdharReminderModal('${r.id}')" class="py-1.5 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300/80 dark:border-emerald-800 text-xs font-semibold transition-all shadow-xs active:scale-95 flex items-center gap-1.5 cursor-pointer" title="${isGave ? 'Send WhatsApp / SMS Reminder' : 'Send message to friend'}">
+                      <i data-lucide="message-circle" class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400"></i>
+                      <span>${isGave ? 'Remind' : 'Message'}</span>
+                    </button>
                     <button onclick="handleSettleUdhar('${r.id}')" class="py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-all shadow-xs active:scale-95 flex items-center gap-1 cursor-pointer" title="Mark this payment settled">
                       <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
                       <span>Settle</span>
@@ -3844,7 +3989,7 @@ function renderUdhar() {
               </div>
             </div>
           `;
-        }).join('')}
+  }).join('')}
       </div>
     </div>
   `;
@@ -3881,6 +4026,7 @@ function setUdharModalType(t) {
 
 function saveUdharFromModal() {
   const friend = document.getElementById('udhar-friend-name')?.value.trim();
+  const phone = document.getElementById('udhar-phone')?.value.trim() || '';
   const type = document.getElementById('udhar-type-input')?.value || 'gave';
   const amount = parseFloat(document.getElementById('udhar-amount')?.value);
   const note = document.getElementById('udhar-note')?.value.trim();
@@ -3899,6 +4045,7 @@ function saveUdharFromModal() {
   addUdharRecord({
     id: 'u_' + uid(),
     friend,
+    phone,
     type,
     amount,
     note: note || (type === 'gave' ? 'Money lent' : 'Money borrowed'),
@@ -3909,6 +4056,7 @@ function saveUdharFromModal() {
 
   closeAddUdharModal();
   document.getElementById('udhar-friend-name').value = '';
+  if (document.getElementById('udhar-phone')) document.getElementById('udhar-phone').value = '';
   document.getElementById('udhar-amount').value = '';
   document.getElementById('udhar-note').value = '';
   document.getElementById('udhar-due-date').value = '';
@@ -3948,6 +4096,10 @@ document.getElementById('add-udhar-modal')?.addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeAddUdharModal();
 });
 
+document.getElementById('send-reminder-modal')?.addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeUdharReminderModal();
+});
+
 document.getElementById('quick-add-modal')?.addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeQuickAdd();
 });
@@ -3967,6 +4119,7 @@ document.addEventListener('keydown', (e) => {
     closeDbModal();
     closeAddStudySlotModal();
     closeAddUdharModal();
+    closeUdharReminderModal();
     closeAddIncomeModal();
     closeMonthlyReportModal();
   }
@@ -4182,7 +4335,7 @@ function updateReportPreview() {
             ${studyItems.length === 0 ? '<p class="text-[11px] text-gray-400">No study sessions logged.</p>' : studyItems.map(([subj, mins]) => `
               <div class="flex items-center justify-between text-[11px]">
                 <span class="text-gray-700 dark:text-gray-300">${subj}</span>
-                <span class="font-bold text-gray-900 dark:text-white">${(mins/60).toFixed(1)} hrs</span>
+                <span class="font-bold text-gray-900 dark:text-white">${(mins / 60).toFixed(1)} hrs</span>
               </div>
             `).join('')}
           </div>
@@ -4397,7 +4550,7 @@ function triggerWebsiteAutoSend(isManualTest) {
       cfg.lastSentMonth = reportKey;
       saveReportConfig(cfg);
     }
-  } catch(e) {
+  } catch (e) {
     console.error('triggerWebsiteAutoSend error:', e);
   }
 }
@@ -4434,7 +4587,7 @@ function renderGrades() {
   const currentSGPA = calculateSGPA(courses);
   const currentCredits = courses.reduce((acc, c) => acc + (parseFloat(c.credits) || 0), 0);
   const cumulativeCGPA = calculateCGPA(pastSemesters, currentSGPA, currentCredits);
-  
+
   const totalDegreeCredits = pastSemesters.reduce((acc, s) => acc + (parseFloat(s.totalCredits) || 0), 0) + currentCredits;
   const targetCGPA = parseFloat(gradeData.targetCGPA) || 8.5;
   const cgpaGap = parseFloat((cumulativeCGPA - targetCGPA).toFixed(2));
@@ -4555,9 +4708,9 @@ function renderGrades() {
                   </td>
                 </tr>
               ` : courses.map(c => {
-                const pt = GRADE_POINTS[c.grade] || 0;
-                const earned = (parseFloat(c.credits) || 0) * pt;
-                return `
+    const pt = GRADE_POINTS[c.grade] || 0;
+    const earned = (parseFloat(c.credits) || 0) * pt;
+    return `
                   <tr class="hover:bg-gray-50/70 dark:hover:bg-surface-700/40 transition-colors">
                     <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">${c.code || '-'}</td>
                     <td class="p-3 font-semibold text-gray-900 dark:text-white">${c.name}</td>
@@ -4582,7 +4735,7 @@ function renderGrades() {
                     </td>
                   </tr>
                 `;
-              }).join('')}
+  }).join('')}
             </tbody>
           </table>
         </div>
@@ -4738,12 +4891,12 @@ function handleDeletePastSem(id) {
 function handleCalculateTargetSGPA() {
   const targetCGPA = parseFloat(document.getElementById('estimator-target-cgpa')?.value) || 8.5;
   const nextCredits = parseInt(document.getElementById('estimator-next-credits')?.value) || 22;
-  
+
   const gradeData = getGradeData();
   const courses = gradeData.currentCourses || [];
   const currentSGPA = calculateSGPA(courses);
   const currentCredits = courses.reduce((acc, c) => acc + (parseFloat(c.credits) || 0), 0);
-  
+
   let currentTotalWeighted = 0;
   let currentTotalCredits = 0;
   (gradeData.pastSemesters || []).forEach(s => {
@@ -4844,14 +4997,14 @@ function renderAchievements() {
       <!-- Badges Grid -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         ${badges.map(b => {
-          const isUnlocked = b.unlocked;
-          let borderClass = isUnlocked ? 'border-amber-300 dark:border-amber-700/60 bg-gradient-to-b from-amber-500/5 to-transparent' : 'border-gray-100 dark:border-surface-700';
-          let iconBg = isUnlocked ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25' : 'bg-gray-100 dark:bg-surface-700 text-gray-400';
-          let statusBadge = isUnlocked 
-            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300 border border-emerald-200">🏆 UNLOCKED</span>`
-            : `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-100 dark:bg-surface-700 text-gray-500">🔒 IN PROGRESS</span>`;
+    const isUnlocked = b.unlocked;
+    let borderClass = isUnlocked ? 'border-amber-300 dark:border-amber-700/60 bg-gradient-to-b from-amber-500/5 to-transparent' : 'border-gray-100 dark:border-surface-700';
+    let iconBg = isUnlocked ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25' : 'bg-gray-100 dark:bg-surface-700 text-gray-400';
+    let statusBadge = isUnlocked
+      ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300 border border-emerald-200">🏆 UNLOCKED</span>`
+      : `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-100 dark:bg-surface-700 text-gray-500">🔒 IN PROGRESS</span>`;
 
-          return `
+    return `
             <div class="p-5 rounded-2xl bg-white dark:bg-surface-800 border ${borderClass} shadow-sm space-y-3 flex flex-col justify-between hover:border-accent/40 transition-all">
               
               <div class="space-y-2.5">
@@ -4882,7 +5035,7 @@ function renderAchievements() {
 
             </div>
           `;
-        }).join('')}
+  }).join('')}
       </div>
 
     </div>
@@ -4916,7 +5069,7 @@ function closeBackupModal() {
 }
 
 function switchBackupTab(tab) {
-  ['export', 'import', 'reset'].forEach(t => {
+  ['export', 'import', 'autoreset', 'reset'].forEach(t => {
     const el = document.getElementById(`backup-tab-${t}`);
     const btn = document.getElementById(`tab-btn-backup-${t}`);
     if (el) {
@@ -4931,14 +5084,142 @@ function switchBackupTab(tab) {
       }
     }
   });
+  if (tab === 'autoreset') {
+    populateAutoResetUI();
+  }
   lucide.createIcons();
+}
+
+function populateAutoResetUI() {
+  const toggle = document.getElementById('toggle-monthly-auto-reset');
+  if (toggle) {
+    toggle.checked = isMonthlyAutoResetEnabled();
+  }
+
+  const nextDateEl = document.getElementById('autoreset-next-date');
+  if (nextDateEl) {
+    const nextInfo = getNextMonthlyResetDate();
+    nextDateEl.textContent = nextInfo.formatted;
+  }
+
+  const pill = document.getElementById('autoreset-status-pill');
+  if (pill) {
+    const enabled = isMonthlyAutoResetEnabled();
+    if (enabled) {
+      pill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800';
+      pill.textContent = 'Active (1st of Month)';
+    } else {
+      pill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-surface-700 dark:text-gray-400 border border-gray-200 dark:border-surface-600';
+      pill.textContent = 'Disabled';
+    }
+  }
+
+  renderMonthlyArchivesList();
+}
+
+function handleToggleMonthlyAutoReset(checked) {
+  setMonthlyAutoResetEnabled(checked);
+  const pill = document.getElementById('autoreset-status-pill');
+  if (pill) {
+    if (checked) {
+      pill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800';
+      pill.textContent = 'Active (1st of Month)';
+      showToast('Monthly auto-reset enabled! Totals will reset on the 1st of every month.', 'success');
+    } else {
+      pill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 dark:bg-surface-700 dark:text-gray-400 border border-gray-200 dark:border-surface-600';
+      pill.textContent = 'Disabled';
+      showToast('Monthly auto-reset disabled.', 'info');
+    }
+  }
+}
+
+function handleTriggerManualMonthlyReset() {
+  const confirmed = confirm('Are you sure you want to test/trigger the 1st-of-month reset now?\n\n• Your current totals (attendance, expenses, study hours) will be safely archived\n• Active counters will reset to 0\n• Course subjects and budget limit will be kept');
+  if (!confirmed) return;
+
+  const result = checkMonthlyAutoReset(true);
+  if (result && result.resetOccurred) {
+    showToast(`✅ Reset completed! Archived ${result.prevMonthLabel} and started fresh slate.`, 'success');
+    populateAutoResetUI();
+    if (typeof currentPage !== 'undefined') {
+      renderPage(currentPage);
+    }
+  } else {
+    showToast('Reset could not be performed.', 'error');
+  }
+}
+
+function renderMonthlyArchivesList() {
+  const container = document.getElementById('monthly-archives-list');
+  const countEl = document.getElementById('monthly-archives-count');
+  if (!container) return;
+
+  const archives = getMonthlyArchives();
+  if (countEl) countEl.textContent = `${archives.length} archive${archives.length === 1 ? '' : 's'}`;
+
+  if (!archives || archives.length === 0) {
+    container.innerHTML = `
+      <div class="p-3 text-center rounded-xl bg-gray-50 dark:bg-surface-700/40 text-gray-400 text-[11px]">
+        No monthly archives yet. Archives will appear here automatically on the 1st of each month.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = archives.map(a => {
+    const d = new Date(a.archivedAt);
+    const dateFormatted = d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' });
+    const attPct = a.attendanceSummary?.overallPct ?? '--';
+    const classes = a.attendanceSummary?.totalClasses ?? 0;
+    const spent = (a.totalSpent || 0).toLocaleString('en-IN');
+    const study = a.studyHours || '0.0';
+
+    return `
+      <div class="p-2.5 rounded-xl bg-gray-50 dark:bg-surface-700/50 border border-gray-200/70 dark:border-surface-600/70 flex items-center justify-between gap-2">
+        <div class="space-y-0.5 min-w-0">
+          <div class="flex items-center gap-1.5">
+            <span class="font-bold text-gray-900 dark:text-white truncate">${a.monthLabel}</span>
+            ${a.isManual ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 font-semibold">Test Reset</span>' : ''}
+          </div>
+          <p class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+            Classes: ${classes} (${attPct}%) • Spent: ₹${spent} • Study: ${study}h
+          </p>
+          <span class="text-[9px] text-gray-400">Archived ${dateFormatted}</span>
+        </div>
+        <button onclick="downloadMonthlyArchiveJSON('${a.id}')" title="Download archive JSON snapshot" class="p-1.5 rounded-lg text-gray-500 hover:text-accent hover:bg-gray-200 dark:hover:bg-surface-600 transition-colors shrink-0">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    `;
+  }).join('');
+  lucide.createIcons();
+}
+
+function downloadMonthlyArchiveJSON(archiveId) {
+  const archives = getMonthlyArchives();
+  const found = archives.find(a => a.id === archiveId);
+  if (!found) {
+    showToast('Archive record not found', 'error');
+    return;
+  }
+  const jsonStr = JSON.stringify(found, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `LifeFlow_Archive_${found.monthKey || 'snapshot'}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`Downloaded snapshot for ${found.monthLabel}! 📦`, 'success');
 }
 
 function handleExportBackup() {
   showToast('Creating complete snapshot backup...', 'info');
   const backup = exportFullDataJSON();
   const jsonStr = JSON.stringify(backup, null, 2);
-  
+
   const blob = new Blob([jsonStr], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -4958,25 +5239,25 @@ function handleImportBackupFile(input) {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = function (e) {
     try {
       const parsed = JSON.parse(e.target.result);
       cachedBackupImportData = parsed;
-      
+
       const box = document.getElementById('backup-preview-box');
       const nameEl = document.getElementById('preview-filename');
       const dateEl = document.getElementById('preview-date');
       const sumEl = document.getElementById('preview-summary-text');
-      
+
       if (box) box.classList.remove('hidden');
       if (nameEl) nameEl.textContent = file.name;
       if (dateEl) dateEl.textContent = parsed.exportedAt ? new Date(parsed.exportedAt).toLocaleDateString() : 'Ready';
-      
+
       const d = parsed.data || parsed;
       const countCourses = (d.attendance || []).length;
       const countExp = (d.expenses || []).length;
       const countStudy = (d.studySessions || []).length;
-      
+
       if (sumEl) {
         sumEl.innerHTML = `Found: <strong>${countCourses}</strong> courses, <strong>${countExp}</strong> expenses, <strong>${countStudy}</strong> study sessions.`;
       }
@@ -5035,4 +5316,811 @@ if (typeof window !== 'undefined' && window.addEventListener && 'serviceWorker' 
       console.log('SW registration note:', err);
     });
   });
+}
+
+
+// ========== UDHAR PAYMENT REMINDER CONTROLLER ==========
+let currentReminderUdharId = null;
+let currentReminderTemplate = 'odlish';
+
+const REMINDER_TEMPLATES = {
+  odlish: {
+    name: '🌿 Odlish (ଭାଇ / ସାଙ୍ଗ)',
+    subtitle: 'Friendly Odia transliteration',
+    build: (r, upi) => {
+      const isGave = r.type === 'gave';
+      if (!isGave) {
+        return `Haye ${r.friend} bhai! Kemiti achhu? Mu se dinara ₹${r.amount} (${r.note || 'money'}) feriba katha bhabuthili. Tora UPI ID / QR code send karibu bhai, mu ebe pathaidebi. Dhanyabad! 🙏`;
+      }
+      let msg = `Haye ${r.friend} bhai! Kemiti achhu? `;
+      msg += `Se dinara ₹${r.amount} (${r.note || 'lending'}) baki thila na, `;
+      if (r.dueDate) {
+        msg += `due date thila ${formatDate(r.dueDate)}. `;
+      }
+      msg += `Samaya milile UPI / PhonePe re transfer karidebu bhai. Dhanyabad! 🙏✨`;
+      if (upi) {
+        msg += `\n\n💳 Pay via UPI: ${upi}\n(GPay / PhonePe / Paytm)`;
+      }
+      return msg;
+    }
+  },
+  odia: {
+    name: '🌸 ଓଡ଼ିଆ Script',
+    subtitle: 'Pure Odia script message',
+    build: (r, upi) => {
+      const isGave = r.type === 'gave';
+      if (!isGave) {
+        return `ହେଇ ${r.friend} ଭାଇ! କେମିତି ଅଛୁ? ମୁଁ ସେଦିନର ₹${r.amount} (${r.note || 'ଧାର'}) ଫେରସ୍ତ କରିବାକୁ ଚାହୁଁଛି। ତୋର UPI ID / QR କୋଡ଼ ପଠେଇବୁ ଭାଇ, ମୁଁ ଏବେ ପଠେଇଦେବି। ଧନ୍ୟବାଦ! 🙏`;
+      }
+      let msg = `ହେଇ ${r.friend} ଭାଇ! କେମିତି ଅଛୁ? `;
+      msg += `ସେଦିନର ₹${r.amount} (${r.note || 'ଉଧାର'}) ବାକି ଥିଲା, `;
+      if (r.dueDate) {
+        msg += `ଫେରସ୍ତ ତାରିଖ ଥିଲା ${formatDate(r.dueDate)}। `;
+      }
+      msg += `ସମୟ ମିଳିଲେ UPI / PhonePe ରେ ପଠେଇଦେବୁ ଭାଇ। ଧନ୍ୟବାଦ! 🙏✨`;
+      if (upi) {
+        msg += `\n\n💳 UPI ରେ ପେମେଣ୍ଟ କରନ୍ତୁ: ${upi}\n(GPay / PhonePe / Paytm)`;
+      }
+      return msg;
+    }
+  },
+  casual: {
+    name: '💬 Friendly (English)',
+    subtitle: 'Warm & casual peer reminder',
+    build: (r, upi) => {
+      const isGave = r.type === 'gave';
+      if (!isGave) {
+        return `Hey ${r.friend}! Just a quick note regarding the ₹${r.amount} I borrowed for ${r.note || 'expenses'}. Please share your UPI ID or QR so I can settle it today! Thanks!`;
+      }
+      let msg = `Hey ${r.friend}! Hope you\'re doing well. Just a gentle reminder about the ₹${r.amount} for ${r.note || 'money lent'}. `;
+      if (r.dueDate) {
+        msg += `It was due around ${formatDate(r.dueDate)}. `;
+      }
+      msg += `Whenever you get a free minute, please UPI me. Thanks a lot! 😊`;
+      if (upi) {
+        msg += `\n\n💳 Pay via UPI: ${upi}\n(GPay / PhonePe / Paytm)`;
+      }
+      return msg;
+    }
+  },
+  polite: {
+    name: '👔 Polite & Formal',
+    subtitle: 'Professional & courteous reminder',
+    build: (r, upi) => {
+      const isGave = r.type === 'gave';
+      if (!isGave) {
+        return `Hi ${r.friend}, hope you are well. I would like to repay the ₹${r.amount} for ${r.note || 'loan'}. Kindly share your payment details/UPI so I can clear it immediately. Thank you!`;
+      }
+      let msg = `Hi ${r.friend}, hope all is well. This is a gentle reminder regarding the outstanding amount of ₹${r.amount} for "${r.note || 'lending'}" from ${formatDate(r.date)}. `;
+      if (r.dueDate) {
+        msg += `Expected return date was ${formatDate(r.dueDate)}. `;
+      }
+      msg += `Kindly settle it at your convenience. Thank you!`;
+      if (upi) {
+        msg += `\n\n💳 UPI ID: ${upi}`;
+      }
+      return msg;
+    }
+  },
+  urgent: {
+    name: '⚡ Urgent / Due Alert',
+    subtitle: 'Direct settlement reminder',
+    build: (r, upi) => {
+      const isGave = r.type === 'gave';
+      if (!isGave) {
+        return `Hey ${r.friend}, please send your UPI details urgently so I can clear my pending ₹${r.amount} debt today. Thanks!`;
+      }
+      let msg = `Hey ${r.friend}, following up on the ₹${r.amount} lent for ${r.note || 'expense'}. `;
+      if (r.dueDate) {
+        msg += `It was scheduled to be returned by ${formatDate(r.dueDate)} and is currently overdue. `;
+      } else {
+        msg += `It has been pending since ${formatDate(r.date)}. `;
+      }
+      msg += `I have urgent college/hostel expenses coming up, so please clear this today via UPI if possible. Thank you!`;
+      if (upi) {
+        msg += `\n\n💳 UPI ID for payment: ${upi}`;
+      }
+      return msg;
+    }
+  }
+};
+
+function seedSampleUdharData(showToastMsg = true) {
+  saveData(STORAGE_KEYS.udhar, DEFAULT_UDHAR);
+  if (currentPage === 'udhar' || currentPage === 'dashboard') {
+    renderPage(currentPage);
+  }
+  if (showToastMsg) {
+    showToast('Loaded sample friends lending records! 🤝✨', 'success');
+  }
+}
+
+function openUdharReminderModal(id = null) {
+  let records = getUdharRecords();
+  let record = null;
+  if (id) {
+    record = records.find(r => r.id === id);
+  }
+  if (!record) {
+    record = records.find(r => r.type === 'gave' && r.status === 'pending') || records.find(r => r.status === 'pending') || records[0];
+  }
+
+  // If no records at all, populate default sample records
+  if (!record) {
+    seedSampleUdharData(false);
+    records = getUdharRecords();
+    record = records[0];
+  }
+
+  if (!record) {
+    showToast('Please add a friend loan record first', 'info');
+    openAddUdharModal();
+    return;
+  }
+
+  currentReminderUdharId = record.id;
+  const m = document.getElementById('send-reminder-modal');
+  if (!m) return;
+
+  // Render friend selector dropdown + friend card
+  const detailsEl = document.getElementById('reminder-card-details');
+  if (detailsEl) {
+    const isGave = record.type === 'gave';
+    const isOverdue = record.dueDate && new Date(record.dueDate) < new Date(todayStr());
+    const pendingList = records.filter(r => r.status === 'pending');
+    detailsEl.innerHTML = `
+      <div class="space-y-2.5">
+        ${pendingList.length > 1 ? `
+          <div class="flex items-center justify-between pb-2 border-b border-emerald-200/50 dark:border-surface-600 gap-2">
+            <label class="text-[11px] font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">Switch Friend:</label>
+            <select onchange="openUdharReminderModal(this.value)" class="text-xs font-semibold py-1 px-2.5 rounded-lg border border-emerald-300 dark:border-surface-600 bg-white dark:bg-surface-800 text-gray-800 dark:text-gray-200 outline-none flex-1 max-w-[240px]">
+              ${pendingList.map(r => `
+                <option value="${r.id}" ${r.id === record.id ? 'selected' : ''}>
+                  ${r.friend} (₹${r.amount})
+                </option>
+              `).join('')}
+            </select>
+          </div>
+        ` : ''}
+
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-black">
+              ${(record.friend || 'F').slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <h4 class="font-bold text-xs text-gray-900 dark:text-white">${record.friend}</h4>
+              <p class="text-[11px] text-gray-500 dark:text-gray-400">${record.note || (isGave ? 'Money Lent' : 'Money Borrowed')}</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-base font-extrabold ${isGave ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}">
+              ₹${record.amount.toLocaleString('en-IN')}
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${isGave ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'}">
+              ${isGave ? 'Lent (Receivable)' : 'Borrowed (Payable)'}
+            </span>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-gray-500 dark:text-gray-400 border-t border-emerald-200/40 dark:border-surface-600">
+          <span>📅 Lent on: <strong>${formatDate(record.date)}</strong></span>
+          ${record.dueDate ? `
+            <span class="${isOverdue ? 'text-rose-600 dark:text-rose-400 font-bold' : ''}">
+              ⏰ Due: <strong>${formatDate(record.dueDate)}</strong> ${isOverdue ? '(Overdue! ⚠️)' : ''}
+            </span>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // Populate phone
+  const phoneInput = document.getElementById('reminder-phone-input');
+  if (phoneInput) {
+    phoneInput.value = record.phone || '';
+  }
+
+  // Populate UPI toggle & input
+  const storedUpi = typeof getStoredUpiId === 'function' ? getStoredUpiId() : '';
+  const upiInput = document.getElementById('reminder-upi-input');
+  const upiCheck = document.getElementById('reminder-include-upi');
+  const upiBox = document.getElementById('reminder-upi-container');
+  if (upiInput) upiInput.value = storedUpi;
+  if (upiCheck) {
+    upiCheck.checked = Boolean(storedUpi);
+    if (upiBox) {
+      if (storedUpi) upiBox.classList.remove('hidden');
+      else upiBox.classList.add('hidden');
+    }
+  }
+
+  // Render template chips
+  renderReminderTemplateChips();
+
+  // Update preview
+  updateReminderPreview();
+
+  m.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function closeUdharReminderModal() {
+  const m = document.getElementById('send-reminder-modal');
+  if (m) m.classList.add('hidden');
+  currentReminderUdharId = null;
+}
+
+function renderReminderTemplateChips() {
+  const container = document.getElementById('reminder-template-chips');
+  if (!container) return;
+
+  container.innerHTML = Object.entries(REMINDER_TEMPLATES).map(([key, t]) => {
+    const isActive = currentReminderTemplate === key;
+    return `
+      <button type="button" onclick="selectReminderTemplate('${key}')" class="p-2 rounded-xl text-left border transition-all cursor-pointer ${isActive
+        ? 'bg-accent text-white border-accent shadow-xs scale-[1.02]'
+        : 'bg-white dark:bg-surface-700/60 border-gray-200 dark:border-surface-600 text-gray-700 dark:text-gray-300 hover:border-accent/40'
+      }">
+        <div class="font-bold text-[11px] leading-tight">${t.name}</div>
+        <div class="text-[9.5px] ${isActive ? 'text-white/80' : 'text-gray-400'} truncate mt-0.5">${t.subtitle}</div>
+      </button>
+    `;
+  }).join('');
+}
+
+function selectReminderTemplate(key) {
+  currentReminderTemplate = key;
+  renderReminderTemplateChips();
+  updateReminderPreview();
+}
+
+function toggleReminderUpi(enabled) {
+  const box = document.getElementById('reminder-upi-container');
+  if (box) {
+    if (enabled) box.classList.remove('hidden');
+    else box.classList.add('hidden');
+  }
+  updateReminderPreview();
+}
+
+function handleReminderUpiChange(val) {
+  if (typeof saveStoredUpiId === 'function') {
+    saveStoredUpiId(val);
+  }
+  updateReminderPreview();
+}
+
+function handleReminderPhoneChange(val) {
+  if (currentReminderUdharId && typeof updateUdharRecord === 'function') {
+    updateUdharRecord(currentReminderUdharId, { phone: val.trim() });
+  }
+}
+
+function updateReminderPreview() {
+  if (!currentReminderUdharId) return;
+  const records = getUdharRecords();
+  const record = records.find(r => r.id === currentReminderUdharId);
+  if (!record) return;
+
+  const tpl = REMINDER_TEMPLATES[currentReminderTemplate] || REMINDER_TEMPLATES.odlish;
+  const upiCheck = document.getElementById('reminder-include-upi');
+  const upiInput = document.getElementById('reminder-upi-input');
+  const upi = (upiCheck && upiCheck.checked && upiInput) ? upiInput.value.trim() : '';
+
+  const msg = tpl.build(record, upi);
+  const msgBox = document.getElementById('reminder-message-text');
+  if (msgBox) {
+    msgBox.value = msg;
+  }
+  updateCharCount();
+}
+
+function updateCharCount() {
+  const msgBox = document.getElementById('reminder-message-text');
+  const countEl = document.getElementById('reminder-char-count');
+  if (msgBox && countEl) {
+    countEl.textContent = `${msgBox.value.length} characters`;
+  }
+}
+
+function cleanPhoneNumber(raw) {
+  if (!raw) return '';
+  let clean = raw.replace(/[^\d+]/g, '');
+  if (clean.startsWith('+')) {
+    clean = clean.slice(1);
+  }
+  // If 10-digit Indian number, prepend 91
+  if (clean.length === 10) {
+    clean = '91' + clean;
+  }
+  return clean;
+}
+
+function sendReminderWhatsApp() {
+  const msgBox = document.getElementById('reminder-message-text');
+  const phoneInput = document.getElementById('reminder-phone-input');
+  const text = msgBox ? msgBox.value.trim() : '';
+  const phone = phoneInput ? phoneInput.value.trim() : '';
+
+  if (!text) {
+    showToast('Reminder message cannot be empty', 'error');
+    return;
+  }
+
+  // Save phone number if entered
+  if (currentReminderUdharId && phone && typeof updateUdharRecord === 'function') {
+    updateUdharRecord(currentReminderUdharId, { phone });
+    if (currentPage === 'udhar') renderPage('udhar');
+  }
+
+  const cleanPhone = cleanPhoneNumber(phone);
+  const encoded = encodeURIComponent(text);
+  const waUrl = cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${encoded}`
+    : `https://wa.me/?text=${encoded}`;
+
+  window.open(waUrl, '_blank');
+  showToast('Opening WhatsApp... 💬✨', 'success');
+}
+
+function copyReminderText() {
+  const msgBox = document.getElementById('reminder-message-text');
+  const text = msgBox ? msgBox.value : '';
+  if (!text) return;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Reminder message copied to clipboard! 📋✨', 'success');
+    }).catch(() => {
+      fallbackCopyText(text);
+    });
+  } else {
+    fallbackCopyText(text);
+  }
+}
+
+function fallbackCopyText(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('Reminder message copied to clipboard! 📋✨', 'success');
+  } catch (err) {
+    showToast('Failed to copy message', 'error');
+  }
+  document.body.removeChild(ta);
+}
+
+function shareReminderNative() {
+  const msgBox = document.getElementById('reminder-message-text');
+  const phoneInput = document.getElementById('reminder-phone-input');
+  const text = msgBox ? msgBox.value.trim() : '';
+  const phone = phoneInput ? phoneInput.value.trim() : '';
+
+  if (!text) return;
+
+  if (navigator.share) {
+    navigator.share({
+      title: 'Payment Reminder',
+      text: text
+    }).catch(() => { });
+  } else {
+    const cleanPhone = cleanPhoneNumber(phone);
+    const smsUrl = `sms:${cleanPhone || ''}?body=${encodeURIComponent(text)}`;
+    window.location.href = smsUrl;
+  }
+}
+
+
+// ========== META CLOUD BUSINESS API INTEGRATION ==========
+function getMetaApiConfig() {
+  try {
+    return JSON.parse(memoryStorage.getItem('lifeflow_meta_api_config') || '{}');
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveMetaApiCredentials() {
+  const token = document.getElementById('meta-access-token')?.value.trim();
+  const phoneId = document.getElementById('meta-phone-id')?.value.trim();
+  memoryStorage.setItem('lifeflow_meta_api_config', JSON.stringify({ token, phoneId }));
+  showToast('Meta Cloud API credentials saved locally! ⚡', 'success');
+}
+
+function toggleMetaApiSettings() {
+  const box = document.getElementById('meta-api-config-box');
+  const indicator = document.getElementById('meta-api-toggle-indicator');
+  if (!box) return;
+  const isHidden = box.classList.contains('hidden');
+  if (isHidden) {
+    box.classList.remove('hidden');
+    if (indicator) indicator.textContent = 'Hide ▲';
+    const cfg = getMetaApiConfig();
+    if (document.getElementById('meta-access-token')) document.getElementById('meta-access-token').value = cfg.token || '';
+    if (document.getElementById('meta-phone-id')) document.getElementById('meta-phone-id').value = cfg.phoneId || '';
+  } else {
+    box.classList.add('hidden');
+    if (indicator) indicator.textContent = 'Configure ⚙️';
+  }
+}
+
+async function sendViaMetaCloudApi() {
+  const cfg = getMetaApiConfig();
+  const token = document.getElementById('meta-access-token')?.value.trim() || cfg.token;
+  const phoneId = document.getElementById('meta-phone-id')?.value.trim() || cfg.phoneId;
+  const phoneInput = document.getElementById('reminder-phone-input');
+  const msgBox = document.getElementById('reminder-message-text');
+
+  if (!token || !phoneId) {
+    showToast('Please enter your Meta Access Token and Phone Number ID', 'error');
+    const box = document.getElementById('meta-api-config-box');
+    if (box && box.classList.contains('hidden')) toggleMetaApiSettings();
+    return;
+  }
+
+  const rawPhone = phoneInput ? phoneInput.value.trim() : '';
+  const cleanPhone = cleanPhoneNumber(rawPhone);
+  if (!cleanPhone) {
+    showToast('Please enter a recipient phone number', 'error');
+    return;
+  }
+
+  const messageText = msgBox ? msgBox.value.trim() : '';
+  if (!messageText) {
+    showToast('Message text is empty', 'error');
+    return;
+  }
+
+  showToast('Sending via Meta Cloud API... ⚡', 'info');
+  try {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${phoneId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: cleanPhone,
+        type: 'text',
+        text: { preview_url: false, body: messageText }
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      showToast('🚀 Message sent automatically via Meta Cloud API!', 'success');
+      closeUdharReminderModal();
+    } else {
+      const errDetail = data.error?.message || 'Meta API call failed';
+      showToast(`Meta Error: ${errDetail}`, 'error', 6000);
+    }
+  } catch (err) {
+    showToast(`Network Error: ${err.message}`, 'error');
+  }
+}
+
+function setDeviceMode(mode) {
+  const sidebar = document.getElementById('sidebar');
+  const phoneBottomBar = document.getElementById('phone-bottom-bar');
+  const mainContent = document.querySelector('main');
+  const btnDesktop = document.getElementById('mode-desktop-btn');
+  const btnPhone = document.getElementById('mode-phone-btn');
+
+  if (mode === 'phone') {
+    sidebar.classList.add('hidden');
+    sidebar.classList.remove('lg:block');
+    mainContent.classList.remove('lg:pl-64');
+    mainContent.classList.add('max-w-md', 'mx-auto', 'border-x', 'border-gray-200', 'dark:border-surface-700', 'pb-20');
+    phoneBottomBar.classList.remove('hidden');
+    phoneBottomBar.classList.add('flex');
+
+    btnPhone.classList.remove('text-gray-500', 'dark:text-gray-400', 'hover:text-gray-900', 'dark:hover:text-white');
+    btnPhone.classList.add('bg-white', 'dark:bg-surface-600', 'text-accent', 'shadow-xs');
+    btnDesktop.classList.remove('bg-white', 'dark:bg-surface-600', 'text-accent', 'shadow-xs');
+    btnDesktop.classList.add('text-gray-500', 'dark:text-gray-400', 'hover:text-gray-900', 'dark:hover:text-white');
+  } else {
+    sidebar.classList.remove('hidden');
+    sidebar.classList.add('lg:block');
+    mainContent.classList.add('lg:pl-64');
+    mainContent.classList.remove('max-w-md', 'mx-auto', 'border-x', 'border-gray-200', 'dark:border-surface-700', 'pb-20');
+    phoneBottomBar.classList.add('hidden');
+    phoneBottomBar.classList.remove('flex');
+
+    btnDesktop.classList.remove('text-gray-500', 'dark:text-gray-400', 'hover:text-gray-900', 'dark:hover:text-white');
+    btnDesktop.classList.add('bg-white', 'dark:bg-surface-600', 'text-accent', 'shadow-xs');
+    btnPhone.classList.remove('bg-white', 'dark:bg-surface-600', 'text-accent', 'shadow-xs');
+    btnPhone.classList.add('text-gray-500', 'dark:text-gray-400', 'hover:text-gray-900', 'dark:hover:text-white');
+  }
+}
+
+// ========== 12-MONTH YEARLY ANALYSIS ==========
+
+function renderYearly() {
+  const archives = getMonthlyArchives().slice(0, 12).reverse();
+
+  if (archives.length === 0) {
+    return `
+      <div class="p-8 text-center text-gray-500">
+        <i data-lucide="bar-chart-3" class="w-12 h-12 mx-auto mb-4 opacity-50"></i>
+        <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">No Monthly Data Yet</h3>
+        <p class="text-sm">Yearly analytics will appear here after your first month completes and resets automatically.</p>
+        <button onclick="generateMockYearlyData(); renderPage('yearly');" class="mt-4 px-4 py-2 bg-accent hover:bg-accent-dark text-white rounded-lg text-xs font-semibold cursor-pointer">Generate 12-Month Mock Data</button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="space-y-6 animate-in fade-in duration-300">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-surface-700">
+        <div>
+          <h2 class="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-6 h-6 text-accent"></i> 12-Month Analysis
+          </h2>
+          <p class="text-sm text-gray-500">Track your performance and trends across the last year</p>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Finances -->
+        <div class="p-5 rounded-2xl bg-white dark:bg-surface-800 border border-gray-100 dark:border-surface-700 shadow-sm">
+          <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-4">Income vs Expenses</h3>
+          <div class="relative h-64 w-full">
+            <canvas id="yearly-finance-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Study Hours -->
+        <div class="p-5 rounded-2xl bg-white dark:bg-surface-800 border border-gray-100 dark:border-surface-700 shadow-sm">
+          <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-4">Total Study Hours</h3>
+          <div class="relative h-64 w-full">
+            <canvas id="yearly-study-chart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Attendance -->
+        <div class="p-5 rounded-2xl bg-white dark:bg-surface-800 border border-gray-100 dark:border-surface-700 shadow-sm lg:col-span-2">
+          <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-4">Overall Class Attendance</h3>
+          <div class="relative h-64 w-full">
+            <canvas id="yearly-attendance-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function generateMockYearlyData() {
+  const archives = [];
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const now = new Date();
+
+  for (let i = 0; i < 12; i++) {
+    let d = new Date(now.getFullYear(), now.getMonth() - i - 1, 1);
+    let mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    let mLabel = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+
+    archives.push({
+      id: 'mock_' + i,
+      monthKey: mKey,
+      monthLabel: mLabel,
+      totalIncome: 12000 + Math.floor(Math.random() * 5000),
+      totalSpent: 8000 + Math.floor(Math.random() * 4000),
+      studyHours: 40 + Math.floor(Math.random() * 60),
+      attendanceSummary: { overallPct: 70 + Math.floor(Math.random() * 25) }
+    });
+  }
+
+  saveData(STORAGE_KEYS.monthlyArchives, archives);
+  showToast('12 months of mock data generated!', 'success');
+}
+
+function initYearlyCharts() {
+  const archives = getMonthlyArchives().slice(0, 12).reverse();
+  if (archives.length === 0) return;
+
+  const isDark = document.documentElement.classList.contains('dark');
+  const textColor = isDark ? '#94a3b8' : '#64748b';
+  const gridColor = isDark ? 'rgba(51,65,85,0.3)' : 'rgba(226,232,240,0.5)';
+
+  const labels = archives.map(a => {
+    if (!a.monthLabel) return '';
+    const parts = a.monthLabel.split(' ');
+    if (parts.length < 2) return a.monthLabel;
+    return parts[0].substring(0, 3) + ' \'' + parts[1].substring(2);
+  });
+
+  const incomes = archives.map(a => a.totalIncome || 0);
+  const expenses = archives.map(a => a.totalSpent || 0);
+  const studyHours = archives.map(a => parseFloat(a.studyHours) || 0);
+  const attendance = archives.map(a => (a.attendanceSummary && a.attendanceSummary.overallPct) ? a.attendanceSummary.overallPct : 0);
+
+  // Finance Chart
+  const finCtx = document.getElementById('yearly-finance-chart');
+  if (finCtx) {
+    chartInstances['yearly-finance'] = new Chart(finCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Income', data: incomes, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.4, fill: true },
+          { label: 'Expenses', data: expenses, borderColor: '#ef4444', backgroundColor: 'transparent', tension: 0.4, fill: false }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: textColor } } },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { color: gridColor } },
+          y: { ticks: { color: textColor }, grid: { color: gridColor } }
+        }
+      }
+    });
+  }
+
+  // Study Chart
+  const studyCtx = document.getElementById('yearly-study-chart');
+  if (studyCtx) {
+    chartInstances['yearly-study'] = new Chart(studyCtx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ label: 'Study Hours', data: studyHours, backgroundColor: '#6366f1', borderRadius: 6 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { display: false } },
+          y: { ticks: { color: textColor }, grid: { color: gridColor } }
+        }
+      }
+    });
+  }
+
+  // Attendance Chart
+  const attCtx = document.getElementById('yearly-attendance-chart');
+  if (attCtx) {
+    chartInstances['yearly-attendance'] = new Chart(attCtx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{ label: 'Attendance %', data: attendance, borderColor: '#8b5cf6', backgroundColor: '#8b5cf6', pointBackgroundColor: '#8b5cf6', tension: 0.2 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: textColor }, grid: { color: gridColor } },
+          y: { min: 0, max: 100, ticks: { color: textColor }, grid: { color: gridColor } }
+        }
+      }
+    });
+  }
+}
+
+// ================= LOFI ROOM & AUDIO MANAGER =================
+let isLofiPlaying = false;
+let currentAmbientUrl = '';
+
+function toggleGlobalAudio() {
+  const lofiAudio = document.getElementById('global-lofi-audio');
+  const ambientAudio = document.getElementById('global-ambient-audio');
+  const miniPlayerBtn = document.getElementById('mini-player-btn');
+  const lofiRoomBtn = document.getElementById('lofi-room-btn');
+  const miniPlayer = document.getElementById('global-mini-player');
+  
+  if (isLofiPlaying) {
+    lofiAudio.pause();
+    ambientAudio.pause();
+    isLofiPlaying = false;
+    if (miniPlayerBtn) miniPlayerBtn.setAttribute('data-lucide', 'play');
+    if (lofiRoomBtn) lofiRoomBtn.innerHTML = '<i data-lucide="play" class="w-6 h-6"></i>';
+    miniPlayer.classList.add('opacity-0', 'translate-y-10');
+    miniPlayer.classList.remove('opacity-100', 'translate-y-0');
+    setTimeout(() => { if (!isLofiPlaying) miniPlayer.classList.add('hidden', 'flex'); }, 300);
+  } else {
+    lofiAudio.play().catch(e => console.error(e));
+    if (currentAmbientUrl) ambientAudio.play().catch(e => console.error(e));
+    isLofiPlaying = true;
+    if (miniPlayerBtn) miniPlayerBtn.setAttribute('data-lucide', 'pause');
+    if (lofiRoomBtn) lofiRoomBtn.innerHTML = '<i data-lucide="pause" class="w-6 h-6"></i>';
+    miniPlayer.classList.remove('hidden');
+    // slight delay for transition
+    setTimeout(() => {
+      miniPlayer.classList.remove('opacity-0', 'translate-y-10');
+      miniPlayer.classList.add('opacity-100', 'translate-y-0');
+    }, 10);
+  }
+  lucide.createIcons();
+}
+
+function setAmbientNoise(type) {
+  const ambientAudio = document.getElementById('global-ambient-audio');
+  let url = '';
+  if (type === 'rain') url = 'audio/rain.mp3';
+  if (type === 'fire') url = 'audio/fire.mp3';
+  if (type === 'waves') url = 'audio/waves.mp3';
+  
+  // Update active pill UI
+  document.querySelectorAll('.ambient-pill').forEach(el => {
+    el.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-500');
+    el.classList.add('bg-white/5', 'text-white/60', 'border-white/10');
+  });
+  
+  if (url === currentAmbientUrl) {
+    // Turn off if already active
+    ambientAudio.pause();
+    currentAmbientUrl = '';
+  } else {
+    currentAmbientUrl = url;
+    ambientAudio.src = url;
+    if (isLofiPlaying) ambientAudio.play();
+    
+    // Set UI active
+    const activePill = document.getElementById('ambient-pill-' + type);
+    if (activePill) {
+      activePill.classList.add('bg-indigo-600', 'text-white', 'border-indigo-500');
+      activePill.classList.remove('bg-white/5', 'text-white/60');
+    }
+  }
+}
+
+function renderLofiRoom() {
+  // We use a beautiful CSS/GIF background to simulate a cozy room
+  const bgGif = 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop';
+  
+  return `
+    <div class="relative w-full h-[85vh] rounded-3xl overflow-hidden shadow-2xl bg-gray-900 group animate-in fade-in zoom-in-95 duration-500">
+      
+      <!-- Background Image with Overlay -->
+      <img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2070&auto=format&fit=crop" class="absolute inset-0 w-full h-full object-cover opacity-60 filter brightness-50 contrast-125 saturate-50 group-hover:scale-105 transition-transform duration-[20s]" />
+      
+      <!-- Dynamic Lighting Gradients -->
+      <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent"></div>
+      <div class="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-purple-900/20 to-transparent"></div>
+      
+      <!-- Content Container -->
+      <div class="relative z-10 w-full h-full flex flex-col items-center justify-center p-6 sm:p-12">
+        
+        <!-- Big Play Button -->
+        <button id="lofi-room-btn" onclick="toggleGlobalAudio()" class="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white flex items-center justify-center shadow-[0_0_50px_rgba(99,102,241,0.3)] hover:shadow-[0_0_80px_rgba(99,102,241,0.5)] hover:scale-105 transition-all duration-300">
+          ${isLofiPlaying ? '<i data-lucide="pause" class="w-8 h-8 sm:w-12 sm:h-12"></i>' : '<i data-lucide="play" class="w-8 h-8 sm:w-12 sm:h-12 ml-2"></i>'}
+        </button>
+        
+        <h2 class="text-3xl sm:text-5xl font-black text-white mt-8 tracking-tight drop-shadow-lg text-center">Ambient Lofi Room</h2>
+        <p class="text-sm sm:text-base text-white/70 mt-3 font-medium max-w-md text-center drop-shadow-md">Deep work session enabled. The music continues to play even if you navigate to other tabs.</p>
+        
+        <!-- Ambient Noise Controllers -->
+        <div class="mt-12 w-full max-w-lg p-5 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl">
+          <p class="text-xs font-bold text-white/50 uppercase tracking-widest text-center mb-4">Mix Ambient Noises</p>
+          <div class="grid grid-cols-3 gap-3">
+            <button id="ambient-pill-rain" onclick="setAmbientNoise('rain')" class="ambient-pill flex flex-col items-center gap-2 p-3 rounded-xl border border-white/10 bg-white/5 text-white/60 hover:bg-white/10 transition-colors">
+              <i data-lucide="cloud-rain" class="w-5 h-5"></i>
+              <span class="text-xs font-bold">Rain</span>
+            </button>
+            <button id="ambient-pill-fire" onclick="setAmbientNoise('fire')" class="ambient-pill flex flex-col items-center gap-2 p-3 rounded-xl border border-white/10 bg-white/5 text-white/60 hover:bg-white/10 transition-colors">
+              <i data-lucide="flame" class="w-5 h-5"></i>
+              <span class="text-xs font-bold">Fireplace</span>
+            </button>
+            <button id="ambient-pill-waves" onclick="setAmbientNoise('waves')" class="ambient-pill flex flex-col items-center gap-2 p-3 rounded-xl border border-white/10 bg-white/5 text-white/60 hover:bg-white/10 transition-colors">
+              <i data-lucide="waves" class="w-5 h-5"></i>
+              <span class="text-xs font-bold">Waves</span>
+            </button>
+          </div>
+        </div>
+        
+      </div>
+      
+      <!-- Aesthetic Pixels overlay -->
+      <div class="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiLz4KPC9zdmc+')] opacity-30 pointer-events-none mix-blend-overlay"></div>
+    </div>
+  `;
 }

@@ -1,4 +1,23 @@
-// LifeFlow Data Layer — localStorage persistence + mock data + auth + Supabase Cloud DB
+// LifeFlow Data Layer — memoryStorage persistence + mock data + auth + Supabase Cloud DB
+
+
+const memoryStorage = {
+  data: {},
+  getItem: function(key) {
+    return this.data[key] !== undefined ? this.data[key] : null;
+  },
+  setItem: function(key, val) {
+    this.data[key] = val;
+  },
+  removeItem: function(key) {
+    if (key in this.data) {
+        delete this.data[key];
+    }
+  },
+  clear: function() {
+    this.data = {};
+  }
+};
 
 const STORAGE_KEYS = {
   routine: 'lifeflow_routine',
@@ -37,6 +56,10 @@ const STORAGE_KEYS = {
   backupHistory: 'lifeflow_backup_history',
   // Achievements & Gamification Badges
   achievements: 'lifeflow_achievements',
+  // Monthly Auto-Reset Keys
+  monthlyAutoReset: 'lifeflow_monthly_auto_reset',
+  lastResetMonth: 'lifeflow_last_reset_month',
+  monthlyArchives: 'lifeflow_monthly_archives',
 };
 
 const GLOBAL_STORAGE_KEYS = new Set([
@@ -53,7 +76,7 @@ function getScopedKey(key) {
     return key;
   }
   try {
-    const rawUser = localStorage.getItem(STORAGE_KEYS.currentUser);
+    const rawUser = memoryStorage.getItem(STORAGE_KEYS.currentUser);
     if (rawUser) {
       const user = JSON.parse(rawUser);
       if (user && user.id) {
@@ -67,14 +90,14 @@ function getScopedKey(key) {
 function loadData(key, fallback) {
   try {
     const effectiveKey = getScopedKey(key);
-    const d = localStorage.getItem(effectiveKey);
+    const d = memoryStorage.getItem(effectiveKey);
     return d !== null ? JSON.parse(d) : fallback;
   } catch { return fallback; }
 }
 
 function saveData(key, val) {
   const effectiveKey = getScopedKey(key);
-  localStorage.setItem(effectiveKey, JSON.stringify(val));
+  memoryStorage.setItem(effectiveKey, JSON.stringify(val));
   // Auto-sync to Supabase cloud if active
   if (typeof syncKeyToSupabase === 'function') {
     syncKeyToSupabase(effectiveKey, val);
@@ -179,7 +202,7 @@ function isDemoUser() {
 
 // ========== AUTH SYSTEM ==========
 
-// Simple hash for passwords (not crypto-secure, but fine for localStorage demo)
+// Simple hash for passwords (not crypto-secure, but fine for memoryStorage demo)
 async function hashPassword(password) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password + 'lifeflow_salt_2026');
@@ -189,28 +212,34 @@ async function hashPassword(password) {
 }
 
 function getUsers() {
-  return loadData(STORAGE_KEYS.users, []);
+  try {
+    const d = window.localStorage.getItem(STORAGE_KEYS.users);
+    return d !== null ? JSON.parse(d) : [];
+  } catch { return []; }
 }
 
 function saveUsers(users) {
-  saveData(STORAGE_KEYS.users, users);
+  window.localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users));
 }
 
 function getCurrentUser() {
-  return loadData(STORAGE_KEYS.currentUser, null);
+  try {
+    const d = window.localStorage.getItem(STORAGE_KEYS.currentUser);
+    return d !== null ? JSON.parse(d) : null;
+  } catch { return null; }
 }
 
 function setCurrentUser(user) {
   if (user) {
     // Store session with user info (no password)
-    saveData(STORAGE_KEYS.currentUser, {
+    window.localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify({
       id: user.id,
       name: user.name,
       email: user.email,
       createdAt: user.createdAt,
-    });
+    }));
   } else {
-    localStorage.removeItem(STORAGE_KEYS.currentUser);
+    window.localStorage.removeItem(STORAGE_KEYS.currentUser);
   }
 }
 
@@ -238,6 +267,7 @@ async function registerUser(name, email, password) {
   initNewUserData(newUser.id, newUser.name);
 
   setCurrentUser(newUser);
+  await pushAllToSupabase(); // Save initial data to cloud
 
   return { success: true, user: newUser };
 }
@@ -252,6 +282,7 @@ async function loginUser(email, password) {
   }
 
   setCurrentUser(user);
+  await pullAllFromSupabase(); // Load user data from cloud to memory
   return { success: true, user };
 }
 
@@ -270,37 +301,37 @@ function initNewUserData(userId, name) {
   const k = (key) => `${key}_${userId}`;
   
   // Clean Daily Routine checklist (all unchecked)
-  localStorage.setItem(k(STORAGE_KEYS.routine), JSON.stringify(DEFAULT_ROUTINE));
-  localStorage.setItem(k(STORAGE_KEYS.routineChecks), JSON.stringify({}));
-  localStorage.setItem(k(STORAGE_KEYS.streak), JSON.stringify({ current: 0, best: 0, lastCheckDate: '' }));
+  memoryStorage.setItem(k(STORAGE_KEYS.routine), JSON.stringify(DEFAULT_ROUTINE));
+  memoryStorage.setItem(k(STORAGE_KEYS.routineChecks), JSON.stringify({}));
+  memoryStorage.setItem(k(STORAGE_KEYS.streak), JSON.stringify({ current: 0, best: 0, lastCheckDate: '' }));
   
   // Clean Study Sessions & Routine
-  localStorage.setItem(k(STORAGE_KEYS.studySessions), JSON.stringify([]));
-  localStorage.setItem(k(STORAGE_KEYS.studyRoutine), JSON.stringify(DEFAULT_STUDY_ROUTINE));
-  localStorage.setItem(k(STORAGE_KEYS.studyRoutineChecks), JSON.stringify({}));
+  memoryStorage.setItem(k(STORAGE_KEYS.studySessions), JSON.stringify([]));
+  memoryStorage.setItem(k(STORAGE_KEYS.studyRoutine), JSON.stringify(DEFAULT_STUDY_ROUTINE));
+  memoryStorage.setItem(k(STORAGE_KEYS.studyRoutineChecks), JSON.stringify({}));
   
   // Clean Finances (0 expenses, 0 incomes)
-  localStorage.setItem(k(STORAGE_KEYS.expenses), JSON.stringify([]));
-  localStorage.setItem(k(STORAGE_KEYS.incomes), JSON.stringify([]));
-  localStorage.setItem(k(STORAGE_KEYS.budget), JSON.stringify(15000));
+  memoryStorage.setItem(k(STORAGE_KEYS.expenses), JSON.stringify([]));
+  memoryStorage.setItem(k(STORAGE_KEYS.incomes), JSON.stringify([]));
+  memoryStorage.setItem(k(STORAGE_KEYS.budget), JSON.stringify(15000));
   
   // Clean Goals & Friends Lending
-  localStorage.setItem(k(STORAGE_KEYS.goals), JSON.stringify([]));
-  localStorage.setItem(k(STORAGE_KEYS.udhar), JSON.stringify([]));
+  memoryStorage.setItem(k(STORAGE_KEYS.goals), JSON.stringify([]));
+  memoryStorage.setItem(k(STORAGE_KEYS.udhar), JSON.stringify([]));
   
   // Personalized Welcome Scratchpad Note
   const firstName = (name || 'Friend').trim().split(' ')[0];
   const welcomeNote = `Welcome ${firstName}!
 
 This is your private LifeFlow workspace. Use this scratchpad to jot down quick notes, daily goals, or reminders.`;
-  localStorage.setItem(k(STORAGE_KEYS.quickNotes), JSON.stringify(welcomeNote));
+  memoryStorage.setItem(k(STORAGE_KEYS.quickNotes), JSON.stringify(welcomeNote));
   
   // Clean Class Attendance (0 courses added yet)
-  localStorage.setItem(k(STORAGE_KEYS.attendance), JSON.stringify([]));
-  localStorage.setItem(k(STORAGE_KEYS.attendanceLogs), JSON.stringify([]));
+  memoryStorage.setItem(k(STORAGE_KEYS.attendance), JSON.stringify([]));
+  memoryStorage.setItem(k(STORAGE_KEYS.attendanceLogs), JSON.stringify([]));
   
   // Clean Academic Grades & CGPA Calculator (0 courses added yet)
-  localStorage.setItem(k(STORAGE_KEYS.grades), JSON.stringify({
+  memoryStorage.setItem(k(STORAGE_KEYS.grades), JSON.stringify({
     activeSemester: 'Semester 1',
     targetCGPA: 8.5,
     pastSemesters: [],
@@ -308,61 +339,61 @@ This is your private LifeFlow workspace. Use this scratchpad to jot down quick n
   }));
   
   // Clean Achievements & Backup History
-  localStorage.setItem(k(STORAGE_KEYS.achievements), JSON.stringify([]));
-  localStorage.setItem(k(STORAGE_KEYS.backupHistory), JSON.stringify([]));
+  memoryStorage.setItem(k(STORAGE_KEYS.achievements), JSON.stringify([]));
+  memoryStorage.setItem(k(STORAGE_KEYS.backupHistory), JSON.stringify([]));
 }
 
 // Initialize rich sample data for Demo Account
 function initDemoUserData(userId = 'demo_user') {
   const k = (key) => `${key}_${userId}`;
-  if (localStorage.getItem(k(STORAGE_KEYS.routine)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.routine), JSON.stringify(DEFAULT_ROUTINE));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.routine)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.routine), JSON.stringify(DEFAULT_ROUTINE));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.routineChecks)) === null) {
+  if (memoryStorage.getItem(k(STORAGE_KEYS.routineChecks)) === null) {
     const checks = {};
     checks[todayStr()] = { r1: true, r2: true, r3: true, r5: true };
-    localStorage.setItem(k(STORAGE_KEYS.routineChecks), JSON.stringify(checks));
+    memoryStorage.setItem(k(STORAGE_KEYS.routineChecks), JSON.stringify(checks));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.studyRoutine)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.studyRoutine), JSON.stringify(DEFAULT_STUDY_ROUTINE));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.studyRoutine)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.studyRoutine), JSON.stringify(DEFAULT_STUDY_ROUTINE));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.studyRoutineChecks)) === null) {
+  if (memoryStorage.getItem(k(STORAGE_KEYS.studyRoutineChecks)) === null) {
     const sChecks = {};
     sChecks[todayStr()] = { sr1: true, sr2: true };
-    localStorage.setItem(k(STORAGE_KEYS.studyRoutineChecks), JSON.stringify(sChecks));
+    memoryStorage.setItem(k(STORAGE_KEYS.studyRoutineChecks), JSON.stringify(sChecks));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.streak)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.streak), JSON.stringify({ current: 7, best: 14, lastCheckDate: todayStr() }));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.streak)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.streak), JSON.stringify({ current: 7, best: 14, lastCheckDate: todayStr() }));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.studySessions)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.studySessions), JSON.stringify(DEFAULT_STUDY_SESSIONS));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.studySessions)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.studySessions), JSON.stringify(DEFAULT_STUDY_SESSIONS));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.expenses)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.expenses), JSON.stringify(DEFAULT_EXPENSES));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.expenses)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.expenses), JSON.stringify(DEFAULT_EXPENSES));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.incomes)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.incomes), JSON.stringify(DEFAULT_INCOMES));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.incomes)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.incomes), JSON.stringify(DEFAULT_INCOMES));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.goals)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.goals), JSON.stringify(DEFAULT_GOALS));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.goals)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.goals), JSON.stringify(DEFAULT_GOALS));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.budget)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.budget), JSON.stringify(DEFAULT_BUDGET));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.budget)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.budget), JSON.stringify(DEFAULT_BUDGET));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.udhar)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.udhar), JSON.stringify(DEFAULT_UDHAR));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.udhar)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.udhar), JSON.stringify(DEFAULT_UDHAR));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.quickNotes)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.quickNotes), JSON.stringify(DEFAULT_SCRATCHPAD_NOTE));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.quickNotes)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.quickNotes), JSON.stringify(DEFAULT_SCRATCHPAD_NOTE));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.attendance)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.attendance), JSON.stringify(DEFAULT_ATTENDANCE_SUBJECTS));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.attendance)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.attendance), JSON.stringify(DEFAULT_ATTENDANCE_SUBJECTS));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.attendanceLogs)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.attendanceLogs), JSON.stringify([]));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.attendanceLogs)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.attendanceLogs), JSON.stringify([]));
   }
-  if (localStorage.getItem(k(STORAGE_KEYS.grades)) === null) {
-    localStorage.setItem(k(STORAGE_KEYS.grades), JSON.stringify(DEFAULT_GRADE_DATA));
+  if (memoryStorage.getItem(k(STORAGE_KEYS.grades)) === null) {
+    memoryStorage.setItem(k(STORAGE_KEYS.grades), JSON.stringify(DEFAULT_GRADE_DATA));
   }
 }
 
@@ -383,44 +414,35 @@ async function ensureDemoAccount() {
 }
 ensureDemoAccount();
 
-// ========== SUPABASE CLOUD DATABASE INTEGRATION ==========
+// ========== FIREBASE CLOUD DATABASE INTEGRATION ==========
 
-let supabaseClient = null;
+// Firebase configuration (Placeholder - update these later)
+const firebaseConfig = {
+  apiKey: "AIzaSyCY8HsvYqvm9hPw9Y_C3ZaV14AQ01sXVIw",
+  authDomain: "lifeflow-tracker-87687.firebaseapp.com",
+  projectId: "lifeflow-tracker-87687",
+  storageBucket: "lifeflow-tracker-87687.firebasestorage.app",
+  messagingSenderId: "350077853265",
+  appId: "1:350077853265:web:819a5bf3318617feb56270"
+};
 
-function getSupabaseConfig() {
-  return {
-    url: localStorage.getItem(STORAGE_KEYS.supabaseUrl) || '',
-    key: localStorage.getItem(STORAGE_KEYS.supabaseKey) || '',
-    enabled: localStorage.getItem(STORAGE_KEYS.supabaseEnabled) === 'true'
-  };
-}
+let db = null;
 
-function saveSupabaseConfig(url, key, enabled) {
-  localStorage.setItem(STORAGE_KEYS.supabaseUrl, (url || '').trim());
-  localStorage.setItem(STORAGE_KEYS.supabaseKey, (key || '').trim());
-  localStorage.setItem(STORAGE_KEYS.supabaseEnabled, enabled ? 'true' : 'false');
-  return initSupabase();
-}
-
-function initSupabase() {
-  const config = getSupabaseConfig();
-  if (window.supabase && config.url && config.key && config.enabled) {
-    try {
-      supabaseClient = window.supabase.createClient(config.url, config.key);
-      console.log('⚡ Supabase Client successfully initialized');
-      return supabaseClient;
-    } catch (err) {
-      console.error('Failed to init Supabase client:', err);
-      supabaseClient = null;
+function initFirebase() {
+  if (typeof firebase !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
     }
+    db = firebase.firestore();
+    console.log('⚡ Firebase successfully initialized');
   } else {
-    supabaseClient = null;
+    console.warn('Firebase config missing, running in local ephemeral memory mode.');
   }
-  return supabaseClient;
 }
+initFirebase();
 
 function isSupabaseConnected() {
-  return supabaseClient !== null;
+  return db !== null;
 }
 
 function getCurrentUserEmail() {
@@ -428,9 +450,10 @@ function getCurrentUserEmail() {
   return (u && u.email) ? u.email : 'guest@lifeflow.app';
 }
 
+// Overwrite the old sync to Supabase function calls to do nothing or sync to Firebase
 async function syncKeyToSupabase(key, val) {
-  if (!supabaseClient) return;
-  // Don't loop or sync supabase credentials into cloud
+  if (!db) return;
+  // Ignore config keys
   if (
     key === STORAGE_KEYS.supabaseUrl ||
     key === STORAGE_KEYS.supabaseKey ||
@@ -439,142 +462,76 @@ async function syncKeyToSupabase(key, val) {
 
   try {
     const userEmail = getCurrentUserEmail();
-    const rowId = `${userEmail}_${key}`;
-    await supabaseClient.from('lifeflow_sync').upsert({
-      id: rowId,
-      user_id: userEmail,
-      key: key,
-      data: val,
-      updated_at: new Date().toISOString()
-    });
+    const docRef = db.collection('lifeflow_data').doc(userEmail);
+    await docRef.set({
+      [key]: val,
+      updated_at: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
   } catch (err) {
-    console.warn(`Supabase sync warning for key "${key}":`, err);
+    console.warn(`Firebase sync warning for key "${key}":`, err);
   }
 }
 
 async function testSupabaseConnection(url, key) {
-  const cleanUrl = (url || '').trim();
-  const cleanKey = (key || '').trim();
-  if (!cleanUrl || !cleanKey) {
-    return { success: false, message: 'Please provide both Project URL and Anon API Key' };
-  }
-  if (!window.supabase) {
-    return { success: false, message: 'Supabase JS library is not loaded. Please verify internet connection.' };
-  }
-  try {
-    const testClient = window.supabase.createClient(cleanUrl, cleanKey);
-    const { data, error } = await testClient.from('lifeflow_sync').select('key').limit(1);
-    if (error) {
-      if (error.code === '42P01' || (error.message && (error.message.includes('relation') || error.message.includes('does not exist')))) {
-        return {
-          success: true,
-          tableMissing: true,
-          message: 'Connected to Supabase! However, the "lifeflow_sync" table was not found yet. Click "Copy SQL Schema" below and run it in your Supabase SQL Editor.'
-        };
-      }
-      return { success: false, message: error.message || 'Connection test failed' };
-    }
-    return { success: true, message: 'Successfully connected to Supabase Cloud Database!' };
-  } catch (err) {
-    return { success: false, message: err.message || 'Network / connection error' };
-  }
+  return { success: true, message: 'Firebase placeholder successful' };
 }
 
 async function pushAllToSupabase() {
-  if (!supabaseClient) {
-    throw new Error('Supabase is not connected. Configure credentials first.');
-  }
-  const userEmail = getCurrentUserEmail();
-  const keysToSync = [
-    STORAGE_KEYS.routine,
-    STORAGE_KEYS.routineChecks,
-    STORAGE_KEYS.studyRoutine,
-    STORAGE_KEYS.studyRoutineChecks,
-    STORAGE_KEYS.streak,
-    STORAGE_KEYS.studySessions,
-    STORAGE_KEYS.expenses,
-    STORAGE_KEYS.goals,
-    STORAGE_KEYS.budget,
-    STORAGE_KEYS.theme,
-    STORAGE_KEYS.quickNotes,
-    STORAGE_KEYS.udhar,
-    STORAGE_KEYS.incomes,
-    STORAGE_KEYS.reportConfig
-  ];
-  const rows = [];
-  for (const k of keysToSync) {
-    const val = loadData(k, null);
-    if (val !== null) {
-      rows.push({
-        id: `${userEmail}_${k}`,
-        user_id: userEmail,
-        key: k,
-        data: val,
-        updated_at: new Date().toISOString()
-      });
+  if (!db) return { success: false, message: 'Firebase not connected' };
+  
+  try {
+    const userEmail = getCurrentUserEmail();
+    const docRef = db.collection('lifeflow_data').doc(userEmail);
+    
+    // Gather all data from memoryStorage
+    const dataToPush = {};
+    for (const [k, v] of Object.entries(memoryStorage.data)) {
+        try {
+            dataToPush[k] = JSON.parse(v);
+        } catch(e) {
+            dataToPush[k] = v;
+        }
     }
+    dataToPush.updated_at = firebase.firestore.FieldValue.serverTimestamp();
+    
+    await docRef.set(dataToPush, { merge: true });
+    return { success: true, count: Object.keys(dataToPush).length, message: 'Successfully pushed to Firebase' };
+  } catch (err) {
+    console.error('Firebase push error:', err);
+    return { success: false, message: 'Error pushing to cloud: ' + err.message };
   }
-
-  const { error } = await supabaseClient.from('lifeflow_sync').upsert(rows);
-  if (error) throw error;
-  return { success: true, count: rows.length };
 }
 
 async function pullAllFromSupabase() {
-  if (!supabaseClient) {
-    throw new Error('Supabase is not connected. Configure credentials first.');
-  }
-  const userEmail = getCurrentUserEmail();
-  const { data, error } = await supabaseClient
-    .from('lifeflow_sync')
-    .select('key, data')
-    .eq('user_id', userEmail);
-
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    return { success: true, count: 0, message: 'No cloud records found for this account.' };
-  }
-
-  let updated = 0;
-  data.forEach(item => {
-    if (item.key && item.data !== undefined) {
-      localStorage.setItem(item.key, JSON.stringify(item.data));
-      updated++;
+  if (!db) return { success: false, message: 'Firebase not connected' };
+  
+  try {
+    const userEmail = getCurrentUserEmail();
+    const docRef = db.collection('lifeflow_data').doc(userEmail);
+    const doc = await docRef.get();
+    
+    if (doc.exists) {
+      const data = doc.data();
+      let count = 0;
+      for (const [k, v] of Object.entries(data)) {
+        if (k !== 'updated_at') {
+          // set directly in memoryStorage to avoid triggering save again
+          memoryStorage.setItem(k, JSON.stringify(v));
+          count++;
+        }
+      }
+      return { success: true, count, message: 'Successfully pulled from Firebase' };
+    } else {
+      return { success: true, count: 0, message: 'No data found in cloud' };
     }
-  });
-
-  return { success: true, count: updated, message: `Successfully pulled ${updated} datasets from cloud!` };
+  } catch (err) {
+    console.error('Firebase pull error:', err);
+    return { success: false, message: 'Error pulling from cloud: ' + err.message };
+  }
 }
 
 function getSupabaseSqlSchema() {
-  return `-- ===============================================
--- LifeFlow Cloud Database Schema for Supabase
--- Paste and run this in your Supabase SQL Editor:
--- ===============================================
-
-CREATE TABLE IF NOT EXISTS lifeflow_sync (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  key TEXT NOT NULL,
-  data JSONB NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Enable Row Level Security (RLS)
-ALTER TABLE lifeflow_sync ENABLE ROW LEVEL SECURITY;
-
--- Allow read & write access for public demo with Anon Key
-DROP POLICY IF EXISTS "Allow anon read write on lifeflow_sync" ON lifeflow_sync;
-CREATE POLICY "Allow anon read write on lifeflow_sync"
-  ON lifeflow_sync
-  FOR ALL
-  TO anon, authenticated
-  USING (true)
-  WITH CHECK (true);
-
--- (Optional) Enable Realtime replication
-ALTER PUBLICATION supabase_realtime ADD TABLE lifeflow_sync;
-`;
+  return '-- No SQL needed for Firebase Firestore';
 }
 
 // ========== DEFAULT MOCK DATA ==========
@@ -703,11 +660,11 @@ const DEFAULT_GOALS = [
 const DEFAULT_BUDGET = 8000;
 
 const DEFAULT_UDHAR = [
-  { id: 'u1', friend: 'Rahul Sharma', amount: 450, type: 'gave', note: 'College canteen lunch split', date: daysAgo(2), dueDate: daysAgo(-3), status: 'pending' },
-  { id: 'u2', friend: 'Amit Patel', amount: 1200, type: 'gave', note: 'Shared hostel electricity bill', date: daysAgo(5), dueDate: daysAgo(-1), status: 'pending' },
-  { id: 'u3', friend: 'Priya Das', amount: 200, type: 'took', note: 'Auto rickshaw emergency cash', date: daysAgo(1), dueDate: daysAgo(-2), status: 'pending' },
-  { id: 'u4', friend: 'Bikash Mohanty', amount: 350, type: 'gave', note: 'Movie tickets share', date: daysAgo(8), dueDate: daysAgo(0), status: 'settled', settledDate: daysAgo(1) },
-  { id: 'u5', friend: 'Sneha Rao', amount: 500, type: 'took', note: 'Borrowed for books purchase', date: daysAgo(12), dueDate: daysAgo(2), status: 'settled', settledDate: daysAgo(3) },
+  { id: 'u1', friend: 'Rahul Sharma', amount: 450, type: 'gave', note: 'College canteen lunch split', date: daysAgo(2), dueDate: daysAgo(-3), status: 'pending', phone: '9876543210' },
+  { id: 'u2', friend: 'Amit Patel', amount: 1200, type: 'gave', note: 'Shared hostel electricity bill', date: daysAgo(5), dueDate: daysAgo(-1), status: 'pending', phone: '9812345678' },
+  { id: 'u3', friend: 'Priya Das', amount: 200, type: 'took', note: 'Auto rickshaw emergency cash', date: daysAgo(1), dueDate: daysAgo(-2), status: 'pending', phone: '9123456789' },
+  { id: 'u4', friend: 'Bikash Mohanty', amount: 350, type: 'gave', note: 'Movie tickets share', date: daysAgo(8), dueDate: daysAgo(0), status: 'settled', settledDate: daysAgo(1), phone: '' },
+  { id: 'u5', friend: 'Sneha Rao', amount: 500, type: 'took', note: 'Borrowed for books purchase', date: daysAgo(12), dueDate: daysAgo(2), status: 'settled', settledDate: daysAgo(3), phone: '' },
 ];
 
 const DEFAULT_INCOMES = [
@@ -734,15 +691,184 @@ const DEFAULT_REPORT_CONFIG = {
 function initData() {
   ensureDemoAccount();
   checkDailyReset();
-  initSupabase();
+  checkMonthlyAutoReset();
 }
 
 function checkDailyReset() {
-  const lastReset = localStorage.getItem(STORAGE_KEYS.lastResetDate);
+  const lastReset = memoryStorage.getItem(STORAGE_KEYS.lastResetDate);
   const today = todayStr();
   if (lastReset !== today) {
-    localStorage.setItem(STORAGE_KEYS.lastResetDate, today);
+    memoryStorage.setItem(STORAGE_KEYS.lastResetDate, today);
   }
+  // Check monthly rollover as well
+  checkMonthlyAutoReset();
+}
+
+// ========== 1ST-OF-MONTH AUTO-RESET ENGINE ==========
+
+function isMonthlyAutoResetEnabled() {
+  return loadData(STORAGE_KEYS.monthlyAutoReset, true);
+}
+
+function setMonthlyAutoResetEnabled(val) {
+  saveData(STORAGE_KEYS.monthlyAutoReset, !!val);
+}
+
+function getMonthlyArchives() {
+  return loadData(STORAGE_KEYS.monthlyArchives, []);
+}
+
+function saveMonthlyArchives(archives) {
+  saveData(STORAGE_KEYS.monthlyArchives, archives);
+}
+
+function getLastResetMonth() {
+  const now = new Date();
+  const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return loadData(STORAGE_KEYS.lastResetMonth, curKey);
+}
+
+function getNextMonthlyResetDate() {
+  const now = new Date();
+  const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0);
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  return {
+    date: nextMonthDate,
+    formatted: `1st ${monthNames[nextMonthDate.getMonth()]} ${nextMonthDate.getFullYear()}, 00:00 AM`,
+    monthName: monthNames[nextMonthDate.getMonth()]
+  };
+}
+
+function checkMonthlyAutoReset(isManualTrigger = false) {
+  try {
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const storedLastMonth = loadData(STORAGE_KEYS.lastResetMonth, null);
+
+    // If first time initialization, record current month key without wiping active session
+    if (!storedLastMonth) {
+      saveData(STORAGE_KEYS.lastResetMonth, currentMonthKey);
+      return { resetOccurred: false };
+    }
+
+    // Trigger reset if month changed OR if user initiated manual test
+    if (storedLastMonth !== currentMonthKey || isManualTrigger) {
+      if (!isManualTrigger && !isMonthlyAutoResetEnabled()) {
+        saveData(STORAGE_KEYS.lastResetMonth, currentMonthKey);
+        return { resetOccurred: false };
+      }
+      return executeMonthlyAutoReset(storedLastMonth, currentMonthKey, isManualTrigger);
+    }
+  } catch (err) {
+    console.error('checkMonthlyAutoReset error:', err);
+  }
+  return { resetOccurred: false };
+}
+
+function executeMonthlyAutoReset(prevMonthKey, newMonthKey, isManualTrigger = false) {
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  
+  let prevMonthLabel = prevMonthKey;
+  try {
+    const parts = prevMonthKey.split('-');
+    const mIdx = parseInt(parts[1], 10) - 1;
+    if (mIdx >= 0 && mIdx < 12) {
+      prevMonthLabel = `${monthNames[mIdx]} ${parts[0]}`;
+    }
+  } catch (e) {}
+
+  const now = new Date();
+  const newMonthLabel = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+
+  // 1. Capture snapshot of all active tracker data before resetting
+  const currentSubjects = getAttendanceSubjects();
+  const currentLogs = getAttendanceLogs();
+  const currentExpenses = getExpenses();
+  const currentIncomes = getIncomes();
+  const currentStudy = getStudySessions();
+  const attSummary = getAttendanceSummary();
+  const spent = getMonthlySpent();
+  const income = getMonthlyIncome();
+  const studyHours = (currentStudy.reduce((sum, s) => sum + (s.duration || 0), 0) / 60).toFixed(1);
+
+  const archiveEntry = {
+    id: 'arch_' + Date.now(),
+    monthKey: prevMonthKey,
+    monthLabel: prevMonthLabel,
+    archivedAt: new Date().toISOString(),
+    isManual: !!isManualTrigger,
+    attendanceSummary: attSummary,
+    subjects: JSON.parse(JSON.stringify(currentSubjects)),
+    attendanceLogsCount: currentLogs.length,
+    totalSpent: spent,
+    totalIncome: income,
+    expensesCount: currentExpenses.length,
+    incomesCount: currentIncomes.length,
+    studyHours: studyHours,
+    studySessionsCount: currentStudy.length
+  };
+
+  // Save to Monthly Archives (keep last 24 months)
+  const archives = getMonthlyArchives();
+  archives.unshift(archiveEntry);
+  saveMonthlyArchives(archives.slice(0, 24));
+
+  // Log in Backup History table for visibility
+  const history = loadData(STORAGE_KEYS.backupHistory, []);
+  history.unshift({
+    id: 'bkh_' + Date.now(),
+    timestamp: new Date().toISOString(),
+    filename: `Monthly_Archive_${prevMonthKey}.json`,
+    type: isManualTrigger ? 'Manual Monthly Reset' : 'Monthly Auto-Reset (1st)',
+    summary: `${prevMonthLabel}: ${attSummary.totalClasses} classes (${attSummary.overallPct}%), ₹${spent.toLocaleString('en-IN')} spent, ${studyHours}h study`
+  });
+  saveData(STORAGE_KEYS.backupHistory, history.slice(0, 15));
+
+  // 2. Perform Full Reset for the new month:
+  // a) Class Attendance: Keep all subject configurations (code, teacher, minRequiredPct), reset attended and total to 0
+  const resetSubjects = currentSubjects.map(s => ({
+    ...s,
+    attended: 0,
+    total: 0
+  }));
+  saveAttendanceSubjects(resetSubjects);
+  saveAttendanceLogs([]);
+
+  // b) Expenses & Incomes: Clean slate for the 1st of the month (budget is preserved)
+  saveData(STORAGE_KEYS.expenses, []);
+  saveData(STORAGE_KEYS.incomes, []);
+
+  // c) Study Sessions: Reset to 0 sessions / 0 duration
+  saveData(STORAGE_KEYS.studySessions, []);
+
+  // d) Routine Checks: Reset daily checkmarks
+  saveData(STORAGE_KEYS.routineChecks, {});
+  saveData(STORAGE_KEYS.studyRoutineChecks, {});
+
+  // e) Streak: preserve best streak, reset current streak to 0
+  const streak = getStreak();
+  if (streak && typeof streak === 'object') {
+    saveData(STORAGE_KEYS.streak, { current: 0, best: streak.best || 0, lastCheckDate: '' });
+  } else {
+    saveData(STORAGE_KEYS.streak, { current: 0, best: typeof streak === 'number' ? streak : 0, lastCheckDate: '' });
+  }
+
+  // Update lastResetMonth to the new month
+  saveData(STORAGE_KEYS.lastResetMonth, newMonthKey);
+
+  return {
+    resetOccurred: true,
+    prevMonthLabel,
+    newMonthLabel,
+    newMonthKey,
+    archiveEntry
+  };
 }
 // ========== DATA ACCESS ==========
 function getRoutine() { return loadData(STORAGE_KEYS.routine, DEFAULT_ROUTINE); }
@@ -775,8 +901,8 @@ function getGoals() { return loadData(STORAGE_KEYS.goals, isDemoUser() ? DEFAULT
 function saveGoals(g) { saveData(STORAGE_KEYS.goals, g); }
 function getBudget() { return loadData(STORAGE_KEYS.budget, 8000); }
 function setBudget(v) { saveData(STORAGE_KEYS.budget, v); }
-function getTheme() { return localStorage.getItem(STORAGE_KEYS.theme) || 'dark'; }
-function setThemePref(t) { localStorage.setItem(STORAGE_KEYS.theme, t); }
+function getTheme() { return memoryStorage.getItem(STORAGE_KEYS.theme) || 'dark'; }
+function setThemePref(t) { memoryStorage.setItem(STORAGE_KEYS.theme, t); }
 
 function addRoutineTask(task) {
   const all = getRoutine();
@@ -892,11 +1018,11 @@ function deleteExpense(id) {
 
 // ========== UNIQUE DASHBOARD HELPERS ==========
 function getQuickNotes() {
-  return localStorage.getItem(STORAGE_KEYS.quickNotes) || '';
+  return memoryStorage.getItem(STORAGE_KEYS.quickNotes) || '';
 }
 
 function saveQuickNotes(text) {
-  localStorage.setItem(STORAGE_KEYS.quickNotes, text);
+  memoryStorage.setItem(STORAGE_KEYS.quickNotes, text);
   if (typeof syncKeyToSupabase === 'function') {
     syncKeyToSupabase(STORAGE_KEYS.quickNotes, text);
   }
@@ -995,6 +1121,25 @@ function deleteUdharRecord(id) {
   let all = getUdharRecords();
   all = all.filter(r => r.id !== id);
   saveData(STORAGE_KEYS.udhar, all);
+}
+
+function updateUdharRecord(id, updates) {
+  const all = getUdharRecords();
+  const index = all.findIndex(r => r.id === id);
+  if (index !== -1) {
+    all[index] = { ...all[index], ...updates };
+    saveData(STORAGE_KEYS.udhar, all);
+  }
+}
+
+function getStoredUpiId() {
+  return memoryStorage.getItem('lifeflow_user_upi_id') || '';
+}
+
+function saveStoredUpiId(upiId) {
+  if (upiId !== undefined) {
+    memoryStorage.setItem('lifeflow_user_upi_id', String(upiId).trim());
+  }
 }
 
 function getUdharSummary() {
@@ -1499,6 +1644,8 @@ function exportFullDataJSON() {
       attendanceLogs: getAttendanceLogs(),
       grades: getGradeData(),
       achievements: loadData(STORAGE_KEYS.achievements, []),
+      monthlyArchives: getMonthlyArchives(),
+      monthlyAutoReset: isMonthlyAutoResetEnabled(),
       theme: getTheme()
     }
   };
@@ -1548,6 +1695,8 @@ function importFullDataJSON(jsonString, mode = 'merge') {
     if (d.attendanceLogs) saveData(STORAGE_KEYS.attendanceLogs, d.attendanceLogs);
     if (d.grades) saveData(STORAGE_KEYS.grades, d.grades);
     if (d.achievements) saveData(STORAGE_KEYS.achievements, d.achievements);
+    if (d.monthlyArchives) saveMonthlyArchives(d.monthlyArchives);
+    if (d.monthlyAutoReset !== undefined) setMonthlyAutoResetEnabled(d.monthlyAutoReset);
   } else {
     // MERGE mode: preserve existing, add non-duplicate records by ID
     const mergeArray = (current, incoming) => {

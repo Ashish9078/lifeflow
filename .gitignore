@@ -18,4 +18,8 @@ e2e_*.js
 .vscode/
 .idea/
 *.swp
+
+# Large audio tracks (>100MB)
+audio/*.mp3
+audio/
 *.swo
