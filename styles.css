@@ -1,233 +1,255 @@
-/* LifeFlow Styles */
-* {
+/* ==========================================================================
+   LifeFlow Stylesheet — Smoky Moss & Mint Glassmorphism
+   Theme: Velvety Sage-Moss Green (#142119, #1c2e24) + Luminous Mint (#68eba5)
+   Direct Match to Reference Photos (Vandale UI aesthetic)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. GLOBAL ANIMATION KILLSWITCH
+   All animations, transitions, and smooth scrolling strictly disabled.
+   -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+  -webkit-animation: none !important;
+  -moz-animation: none !important;
+  -o-animation: none !important;
+  -ms-animation: none !important;
+  animation: none !important;
+  -webkit-transition: none !important;
+  -moz-transition: none !important;
+  -o-transition: none !important;
+  -ms-transition: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
 }
 
-/* Scrollbar */
+/* --------------------------------------------------------------------------
+   2. DESIGN SYSTEM TOKENS & BASE STYLES (Smoky Moss & Mint)
+   -------------------------------------------------------------------------- */
+:root {
+  --bg-body: #142119;
+  --bg-sidebar: rgba(20, 33, 26, 0.78);
+  --bg-header: rgba(19, 31, 25, 0.78);
+  --bg-card: rgba(28, 46, 36, 0.65);
+  --bg-card-hover: rgba(35, 58, 45, 0.78);
+  --bg-input: rgba(16, 26, 20, 0.7);
+
+  --mint-accent: #68eba5;
+  --mint-light: #8ae8b2;
+  --mint-dark: #072516;
+
+  --emerald-primary: #68eba5;
+  --emerald-light: #7deaaf;
+  --emerald-dark: #34d399;
+
+  --teal-500: #2dd4bf;
+  --teal-400: #5eead4;
+
+  --border-subtle: rgba(104, 235, 165, 0.16);
+  --border-subtle-hover: rgba(104, 235, 165, 0.4);
+  --border-card: rgba(104, 235, 165, 0.22);
+  --border-header: rgba(104, 235, 165, 0.15);
+  --border-sidebar: rgba(104, 235, 165, 0.15);
+
+  --text-main: #ffffff;
+  --text-muted: #a4c2b0;
+  --text-dim: #769784;
+}
+
+html,
+body {
+  background-color: #142119 !important;
+  background-image: 
+    radial-gradient(circle at 50% 20%, #20362a 0%, #14221a 50%, #0d1712 100%),
+    radial-gradient(circle at 12% 15%, rgba(104, 235, 165, 0.18) 0%, transparent 45%),
+    radial-gradient(circle at 88% 12%, rgba(45, 212, 191, 0.15) 0%, transparent 42%),
+    radial-gradient(circle at 80% 82%, rgba(104, 235, 165, 0.14) 0%, transparent 50%),
+    radial-gradient(circle at 15% 85%, rgba(56, 189, 248, 0.1) 0%, transparent 45%) !important;
+  background-attachment: fixed !important;
+  background-size: cover !important;
+  color: #ffffff !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Luminous Ambient Sage-Mint Light Orbs */
+body::before {
+  content: '';
+  position: fixed;
+  top: -10%;
+  right: 5%;
+  width: 700px;
+  height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(104, 235, 165, 0.18) 0%, rgba(32, 60, 46, 0.08) 50%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(100px);
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  bottom: -15%;
+  left: 3%;
+  width: 650px;
+  height: 650px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.15) 0%, rgba(20, 40, 30, 0.06) 50%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(100px);
+}
+
+#app,
+#auth-screen {
+  position: relative;
+  z-index: 1;
+}
+
+/* --------------------------------------------------------------------------
+   3. SCROLLBAR
+   -------------------------------------------------------------------------- */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(16, 28, 22, 0.5);
+  backdrop-filter: blur(12px);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #94a3b8;
+  background: rgba(104, 235, 165, 0.28);
   border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #475569;
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(104, 235, 165, 0.55);
 }
 
-/* ========== AUTH PAGE ========== */
-.auth-bg {
+/* --------------------------------------------------------------------------
+   4. FULL GLASSMORPHISM SYSTEM (Smoky Moss & Mint Glass)
+   -------------------------------------------------------------------------- */
+.glass,
+.glass-panel,
+.card,
+.stat-card {
+  position: relative;
+  background: rgba(28, 46, 36, 0.65) !important;
+  backdrop-filter: blur(28px) saturate(170%) brightness(108%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(170%) brightness(108%) !important;
+  border: 1px solid rgba(104, 235, 165, 0.22) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.28) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 
+    0 18px 45px -10px rgba(10, 18, 14, 0.6),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 35px 0 rgba(104, 235, 165, 0.06) !important;
+  border-radius: 1.5rem !important;
+  color: #ffffff !important;
+}
+
+/* Subtle Specular Top Gloss Highlight */
+.card::after,
+.stat-card::after {
+  content: '';
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 1.5rem 1.5rem 0 0;
+  pointer-events: none;
+}
+
+.card:hover,
+.stat-card:hover {
+  background: rgba(35, 58, 45, 0.78) !important;
+  border-color: rgba(104, 235, 165, 0.42) !important;
+  border-top-color: rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 
+    0 22px 50px -10px rgba(10, 18, 14, 0.7),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.32),
+    0 0 30px 0 rgba(104, 235, 165, 0.15) !important;
+}
+
+/* --------------------------------------------------------------------------
+   5. LAYOUT: FROSTED GLASS SIDEBAR, HEADER & DOCK
+   -------------------------------------------------------------------------- */
+#sidebar,
+.sidebar {
+  background: rgba(20, 33, 26, 0.78) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  border-right: 1px solid rgba(104, 235, 165, 0.15) !important;
+  box-shadow: 6px 0 35px rgba(10, 18, 14, 0.5) !important;
+}
+
+header,
+.header,
+.top-bar,
+.topbar {
+  background: rgba(19, 31, 25, 0.78) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  border-bottom: 1px solid rgba(104, 235, 165, 0.15) !important;
+  box-shadow: 0 4px 25px rgba(10, 18, 14, 0.4) !important;
+}
+
+#mobile-bottom-dock {
+  background: rgba(19, 31, 25, 0.88) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  border-top: 1px solid rgba(104, 235, 165, 0.18) !important;
+  box-shadow: 0 -6px 28px rgba(10, 18, 14, 0.55) !important;
+}
+
+/* --------------------------------------------------------------------------
+   6. CARDS & SURFACES (Smoky Moss Glass Surfaces)
+   -------------------------------------------------------------------------- */
+
+/* Hero Command Center Card */
+.hero-glass {
+  background: linear-gradient(145deg, rgba(38, 62, 48, 0.75) 0%, rgba(24, 40, 31, 0.8) 50%, rgba(18, 30, 23, 0.85) 100%) !important;
+  backdrop-filter: blur(30px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+  border: 1px solid rgba(104, 235, 165, 0.28) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.35) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 
+    0 20px 48px -10px rgba(10, 18, 14, 0.65),
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.25),
+    0 0 35px 0 rgba(104, 235, 165, 0.1) !important;
+  position: relative;
   overflow: hidden;
-  z-index: 0;
+  border-radius: 1.5rem !important;
+  color: #ffffff !important;
 }
 
-.auth-orb {
+.hero-glass::before {
+  content: '';
   position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(104, 235, 165, 0.22) 0%, rgba(45, 212, 191, 0.05) 50%, transparent 70%);
   border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.4;
-  animation: float 12s ease-in-out infinite;
+  pointer-events: none;
 }
 
-.dark .auth-orb {
-  opacity: 0.2;
-}
-
-.auth-orb-1 {
-  width: 400px;
-  height: 400px;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  top: -10%;
-  left: -5%;
-  animation-delay: 0s;
-}
-
-.auth-orb-2 {
-  width: 300px;
-  height: 300px;
-  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
-  bottom: -5%;
-  right: -5%;
-  animation-delay: -4s;
-}
-
-.auth-orb-3 {
-  width: 200px;
-  height: 200px;
-  background: linear-gradient(135deg, #ec4899 0%, #f59e0b 100%);
-  top: 50%;
-  left: 60%;
-  animation-delay: -8s;
-}
-
-@keyframes float {
-
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-
-  33% {
-    transform: translate(30px, -30px) scale(1.05);
-  }
-
-  66% {
-    transform: translate(-20px, 20px) scale(0.95);
-  }
-}
-
-.auth-card {
-  animation: authCardEnter 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 25px 60px -15px rgba(99, 102, 241, 0.25), 0 0 40px -10px rgba(168, 85, 247, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-}
-
-.dark .auth-card {
-  box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.8), 0 0 50px -10px rgba(99, 102, 241, 0.35);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  border-top-color: rgba(255, 255, 255, 0.2);
-}
-
-@keyframes authCardEnter {
-  from {
-    opacity: 0;
-    transform: perspective(1000px) translateY(40px) translateZ(-60px) rotateX(8deg);
-  }
-
-  to {
-    opacity: 1;
-    transform: perspective(1000px) translateY(0) translateZ(0) rotateX(0deg);
-  }
-}
-
-/* Auth Tabs */
-.auth-tab {
-  color: #64748b;
-  cursor: pointer;
-}
-
-.auth-tab.active {
-  background: white;
-  color: #1e293b;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.dark .auth-tab.active {
-  background: #0f172a;
-  color: #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-/* Password strength meter */
-.strength-meter {
-  height: 4px;
-  border-radius: 99px;
-  background: #e2e8f0;
-  margin-top: 6px;
-  overflow: hidden;
-}
-
-.dark .strength-meter {
-  background: #1e293b;
-}
-
-.strength-meter .fill {
-  height: 100%;
-  border-radius: 99px;
-  transition: width 0.3s, background 0.3s;
-}
-
-/* ========== NAV LINKS ========== */
-.nav-link {
-  color: #64748b;
-}
-
-.nav-link:hover {
-  background: #f1f5f9;
-  color: #1e293b;
-}
-
-.dark .nav-link:hover {
-  background: rgba(99, 102, 241, 0.1);
-  color: #e2e8f0;
-}
-
-.nav-link.active {
-  background: #eef2ff;
-  color: #6366f1;
-}
-
-.dark .nav-link.active {
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
-}
-
-/* Quick Add Tabs */
-.qa-tab {
-  color: #64748b;
-}
-
-.qa-tab.active {
-  background: white;
-  color: #1e293b;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.dark .qa-tab.active {
-  background: #0f172a;
-  color: #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-/* Modal */
-.modal-overlay.show {
-  display: flex !important;
-  animation: fadeIn 0.2s ease;
-}
-
-.modal-overlay.show .modal-content {
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Cards */
-.card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  border-radius: 1.25rem;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.dark .card {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(99, 102, 241, 0.18);
-  border-top-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-.card:hover {
-  box-shadow: 0 20px 40px -15px rgba(99, 102, 241, 0.18), 0 0 20px -5px rgba(99, 102, 241, 0.12);
-}
-
-.dark .card:hover {
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px -5px rgba(99, 102, 241, 0.3), inset 0 1px 1px 0 rgba(255, 255, 255, 0.2);
-  border-color: rgba(99, 102, 241, 0.4);
-}
-
-/* Stat Card Gradients */
+/* Stat Cards */
 .stat-card {
   position: relative;
   overflow: hidden;
@@ -238,476 +260,584 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 140px;
-  height: 140px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
   opacity: 0.18;
-  filter: blur(25px);
+  filter: blur(28px);
   transform: translate(25%, -25%);
-  transition: transform 0.5s ease, opacity 0.5s ease;
+  pointer-events: none;
 }
 
-.stat-card:hover::before {
-  opacity: 0.35;
-  transform: translate(15%, -15%) scale(1.3);
-}
-
-.stat-card.purple::before {
-  background: radial-gradient(circle, #818cf8 0%, #a855f7 100%);
+.stat-card.purple::before,
+.stat-card.green::before {
+  background: radial-gradient(circle, #68eba5 0%, #2dd4bf 100%);
 }
 
 .stat-card.blue::before {
-  background: radial-gradient(circle, #38bdf8 0%, #3b82f6 100%);
-}
-
-.stat-card.green::before {
-  background: radial-gradient(circle, #4ade80 0%, #10b981 100%);
+  background: radial-gradient(circle, #06b6d4 0%, #0284c7 100%);
 }
 
 .stat-card.orange::before {
-  background: radial-gradient(circle, #fbbf24 0%, #f59e0b 100%);
+  background: radial-gradient(circle, #2dd4bf 0%, #059669 100%);
 }
 
-/* Progress Bar */
-.progress-bar {
-  height: 8px;
-  border-radius: 99px;
-  background: #e2e8f0;
+/* Scratchpad */
+.scratchpad-box {
+  background: rgba(18, 30, 23, 0.55) !important;
+  backdrop-filter: blur(18px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
+  border: 1px dashed rgba(104, 235, 165, 0.35) !important;
+  border-radius: 1rem;
+  color: #ffffff !important;
+}
+
+/* Surface helpers to match smoky moss glass palette */
+.bg-surface-800,
+.bg-surface-800\/70,
+.bg-surface-800\/80,
+.bg-surface-800\/90 {
+  background-color: rgba(28, 46, 36, 0.65) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+.bg-surface-900 {
+  background-color: #142119 !important;
+}
+
+.bg-surface-700,
+.bg-surface-700\/30,
+.bg-surface-700\/40,
+.bg-surface-700\/50,
+.bg-surface-700\/60,
+.bg-surface-700\/80 {
+  background-color: rgba(35, 58, 45, 0.65) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+.border-surface-700,
+.border-surface-700\/60,
+.border-surface-700\/70,
+.border-surface-600,
+.border-gray-700,
+.border-gray-700\/50,
+.border-gray-800,
+.border-gray-800\/60,
+.border-emerald-900\/30,
+.border-slate-200,
+.border-slate-300 {
+  border-color: rgba(104, 235, 165, 0.16) !important;
+}
+
+/* Typography (Matching Photos) */
+h1, h2, h3, h4, h5, h6,
+#page-title,
+#sidebar-username {
+  color: #ffffff !important;
+  letter-spacing: -0.02em;
+}
+
+p, #page-subtitle, #sidebar-email, label {
+  color: #a4c2b0 !important;
+}
+
+.text-gray-400 {
+  color: #a4c2b0 !important;
+}
+
+.text-gray-300 {
+  color: #c0decb !important;
+}
+
+.text-gray-200 {
+  color: #e2f5e9 !important;
+}
+
+.text-gray-500 {
+  color: #769784 !important;
+}
+
+/* --------------------------------------------------------------------------
+   7. VIRTUAL FINTECH "LIFEFLOW CARD" (Matching Reference Image 3)
+   -------------------------------------------------------------------------- */
+.fintech-card-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.fintech-card-stack {
+  position: absolute;
+  top: -8px;
+  left: 16px;
+  right: 16px;
+  height: 24px;
+  background: rgba(22, 50, 36, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(104, 235, 165, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 1.5rem 1.5rem 0 0;
+  z-index: 0;
+}
+
+.fintech-card {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(135deg, #1f4d38 0%, #173d2c 50%, #112d20 100%) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border: 1px solid rgba(104, 235, 165, 0.45) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.45) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 1.5rem !important;
+  padding: 1.5rem;
+  color: white;
   overflow: hidden;
+  box-shadow: 
+    0 22px 50px -10px rgba(10, 20, 15, 0.75),
+    0 8px 24px rgba(22, 60, 42, 0.4),
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.45),
+    0 0 35px rgba(104, 235, 165, 0.18) !important;
 }
 
-.dark .progress-bar {
-  background: #1e293b;
+.fintech-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(104, 235, 165, 0.3) 0%, transparent 70%);
+  pointer-events: none;
 }
 
-.progress-bar .fill {
-  height: 100%;
-  border-radius: 99px;
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+/* Silver-Platinum Metallic Chip (NO brown / dirty yellow) */
+.fintech-card-chip {
+  width: 40px;
+  height: 30px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 50%, #94a3b8 100%);
+  border-radius: 8px;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.6);
 }
 
-/* Checkbox */
+.fintech-card-chip::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   8. NAVIGATION LINKS & TABS (Matching Image 1 & 3 Mint Pill)
+   -------------------------------------------------------------------------- */
+.nav-link {
+  color: #a4c2b0 !important;
+  border-radius: 0.85rem !important;
+  font-weight: 500;
+}
+
+.nav-link:hover {
+  background: rgba(104, 235, 165, 0.1) !important;
+  backdrop-filter: blur(12px) !important;
+  color: #68eba5 !important;
+}
+
+.nav-link.active {
+  background: #68eba5 !important;
+  color: #072516 !important;
+  font-weight: 700 !important;
+  border-radius: 0.85rem !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 
+    0 6px 20px -2px rgba(104, 235, 165, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.6) !important;
+}
+
+.nav-link.active svg,
+.nav-link.active i {
+  color: #072516 !important;
+  stroke: #072516 !important;
+}
+
+/* Quick Add Tabs */
+.qa-tab {
+  color: #a4c2b0;
+  border-radius: 0.65rem;
+}
+
+.qa-tab.active {
+  background: #68eba5 !important;
+  color: #072516 !important;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(104, 235, 165, 0.45) !important;
+}
+
+/* Auth Tabs */
+.auth-tab {
+  color: #a4c2b0;
+  border-radius: 0.65rem;
+}
+
+.auth-tab.active {
+  background: #68eba5 !important;
+  color: #072516 !important;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(104, 235, 165, 0.45) !important;
+}
+
+/* Primary Action Buttons */
+button.bg-accent,
+button.bg-emerald-600,
+button.bg-emerald-500,
+button[onclick*="openQuickAdd"] {
+  background: #68eba5 !important;
+  color: #072516 !important;
+  font-weight: 700 !important;
+  border: 1px solid rgba(104, 235, 165, 0.6) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.5) !important;
+  box-shadow: 0 4px 18px rgba(104, 235, 165, 0.45) !important;
+}
+
+/* --------------------------------------------------------------------------
+   9. AUTHENTICATION SCREEN
+   -------------------------------------------------------------------------- */
+.auth-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  background-color: #142119;
+}
+
+.auth-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(85px);
+  opacity: 0.22;
+}
+
+.auth-orb-1 {
+  width: 460px;
+  height: 460px;
+  background: radial-gradient(circle, #68eba5 0%, #10b981 100%);
+  top: -10%;
+  left: -5%;
+}
+
+.auth-orb-2 {
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, #2dd4bf 0%, #06b6d4 100%);
+  bottom: -5%;
+  right: -5%;
+}
+
+.auth-orb-3 {
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, #68eba5 0%, #2dd4bf 100%);
+  top: 50%;
+  left: 60%;
+}
+
+.auth-card {
+  background: rgba(28, 46, 36, 0.78) !important;
+  backdrop-filter: blur(36px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(180%) !important;
+  border: 1px solid rgba(104, 235, 165, 0.3) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.4) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    0 30px 75px -15px rgba(10, 18, 14, 0.8), 
+    inset 0 1.5px 2px rgba(255, 255, 255, 0.3), 
+    0 0 50px -10px rgba(104, 235, 165, 0.2) !important;
+  border-radius: 1.75rem !important;
+}
+
+/* --------------------------------------------------------------------------
+   10. CHECKBOXES (Moss & Mint Custom Checkmark)
+   -------------------------------------------------------------------------- */
 .routine-checkbox {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  border: 2px solid #cbd5e1;
+  width: 22px;
+  height: 22px;
+  border-radius: 8px;
+  border: 2px solid rgba(104, 235, 165, 0.4);
+  background: rgba(16, 28, 22, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
   cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   position: relative;
   z-index: 10;
-  transform: translateZ(2px);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
 }
 
 .routine-checkbox:hover {
-  transform: translateZ(2px) scale(1.12);
-  border-color: #6366f1;
-}
-
-.routine-checkbox:active {
-  transform: translateZ(2px) scale(0.92);
-}
-
-.dark .routine-checkbox {
-  border-color: #475569;
+  border-color: #68eba5;
 }
 
 .routine-checkbox.checked {
-  background: #6366f1;
-  border-color: #6366f1;
+  background: #68eba5 !important;
+  border-color: #68eba5 !important;
+  box-shadow: 0 2px 10px rgba(104, 235, 165, 0.5) !important;
 }
 
 .routine-checkbox.checked::after {
   content: '';
   width: 6px;
-  height: 10px;
-  border: 2px solid white;
+  height: 11px;
+  border: 2.2px solid #072516;
   border-top: none;
   border-left: none;
   transform: rotate(45deg) translateY(-1px);
 }
 
-/* Pomodoro Timer */
-.timer-ring {
-  transform: rotate(-90deg);
+/* --------------------------------------------------------------------------
+   11. PROGRESS BARS & METERS (Smoky Moss Tracks)
+   -------------------------------------------------------------------------- */
+.progress-bar,
+.budget-meter,
+.fintech-bar-track {
+  height: 9px;
+  border-radius: 9999px;
+  background: rgba(16, 28, 22, 0.75) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(104, 235, 165, 0.12);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
 }
 
-.timer-ring circle {
-  transition: stroke-dashoffset 1s linear;
+.progress-bar .fill,
+.budget-meter .fill,
+.fintech-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #10b981 0%, #68eba5 100%) !important;
+  box-shadow: 0 0 12px rgba(104, 235, 165, 0.5) !important;
 }
 
-/* Kanban */
-.kanban-col {
-  min-height: 200px;
+.strength-meter {
+  height: 5px;
+  border-radius: 9999px;
+  background: rgba(16, 28, 22, 0.75) !important;
+  margin-top: 6px;
+  overflow: hidden;
 }
 
-.goal-card {
-  cursor: grab;
-  transition: all 0.2s;
+.strength-meter .fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: #68eba5;
 }
 
-.goal-card:hover {
-  transform: translateY(-2px);
-}
-
-/* Badge styles */
+/* --------------------------------------------------------------------------
+   12. BADGES & CHIPS (Clean Mint & Sage Badges - No Muddy Amber)
+   -------------------------------------------------------------------------- */
 .badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
-  border-radius: 99px;
+  padding: 3px 11px;
+  border-radius: 9999px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .badge-green {
-  background: rgba(34, 197, 94, 0.1);
-  color: #16a34a;
+  background: rgba(104, 235, 165, 0.18) !important;
+  color: #68eba5 !important;
+  border: 1px solid rgba(104, 235, 165, 0.35) !important;
 }
 
 .badge-yellow {
-  background: rgba(245, 158, 11, 0.1);
-  color: #d97706;
+  background: rgba(45, 212, 191, 0.18) !important;
+  color: #5eead4 !important;
+  border: 1px solid rgba(45, 212, 191, 0.35) !important;
 }
 
 .badge-red {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
+  background: rgba(244, 63, 94, 0.18) !important;
+  color: #fb7185 !important;
+  border: 1px solid rgba(244, 63, 94, 0.35) !important;
 }
 
 .badge-blue {
-  background: rgba(59, 130, 246, 0.1);
-  color: #2563eb;
+  background: rgba(56, 189, 248, 0.18) !important;
+  color: #38bdf8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
 }
 
 .badge-purple {
-  background: rgba(99, 102, 241, 0.1);
-  color: #6366f1;
+  background: rgba(45, 212, 191, 0.18) !important;
+  color: #2dd4bf !important;
+  border: 1px solid rgba(45, 212, 191, 0.35) !important;
 }
 
-.dark .badge-green {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-}
-
-.dark .badge-yellow {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-}
-
-.dark .badge-red {
-  background: rgba(239, 68, 68, 0.15);
-  color: #f87171;
-}
-
-.dark .badge-blue {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
-}
-
-.dark .badge-purple {
-  background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
-}
-
-/* Toast */
-.toast {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  min-width: 280px;
-}
-
-.dark .toast {
-  background: #1e293b;
-  border-color: #334155;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-}
-
-.toast.leaving {
-  animation: slideOutRight 0.3s ease forwards;
-}
-
-/* Streak Badge */
 .streak-badge {
-  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 99px;
-  font-size: 13px;
+  background: rgba(104, 235, 165, 0.18) !important;
+  color: #68eba5 !important;
+  border: 1px solid rgba(104, 235, 165, 0.4) !important;
+  padding: 4px 13px;
+  border-radius: 9999px;
+  font-size: 12px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
-/* Budget Meter */
-.budget-meter {
-  height: 12px;
-  border-radius: 99px;
-  background: #f1f5f9;
-  overflow: hidden;
-  position: relative;
-}
-
-.dark .budget-meter {
-  background: #1e293b;
-}
-
-.budget-meter .fill {
-  height: 100%;
-  border-radius: 99px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.96);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(100px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideOutRight {
-  from {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  to {
-    opacity: 0;
-    transform: translateX(100px);
-  }
-}
-
-@keyframes pulse-glow {
-
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4);
-  }
-
-  50% {
-    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0);
-  }
-}
-
-.pulse-glow {
-  animation: pulse-glow 2s infinite;
-}
-
-/* Page transitions */
-.page-enter {
-  animation: pageEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes pageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* App enter */
-.app-enter {
-  animation: appEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes appEnter {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Auth exit */
-.auth-exit {
-  animation: authExit 0.4s cubic-bezier(0.4, 0, 1, 1) forwards;
-}
-
-@keyframes authExit {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  to {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-}
-
 /* Category icons */
 .cat-food {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(244, 63, 94, 0.15);
+  color: #fb7185;
 }
 
 .cat-study {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
 }
 
 .cat-travel {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
+  background: rgba(104, 235, 165, 0.15);
+  color: #68eba5;
 }
 
 .cat-entertainment {
-  background: rgba(168, 85, 247, 0.1);
-  color: #a855f7;
+  background: rgba(45, 212, 191, 0.15);
+  color: #2dd4bf;
 }
 
 .cat-bills {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
+  background: rgba(104, 235, 165, 0.15);
+  color: #68eba5;
 }
 
-/* Input focus glow */
+/* --------------------------------------------------------------------------
+   13. INPUTS & FORM CONTROLS
+   -------------------------------------------------------------------------- */
+input,
+select,
+textarea {
+  background: rgba(16, 26, 20, 0.7) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(104, 235, 165, 0.22) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: inset 0 1.5px 3px rgba(0, 0, 0, 0.25) !important;
+  color: #ffffff !important;
+  border-radius: 0.85rem !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #769784 !important;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: #68eba5 !important;
+  box-shadow: 0 0 16px rgba(104, 235, 165, 0.3) !important;
+  outline: none !important;
 }
 
-/* Shake animation for errors */
-.shake {
-  animation: shake 0.4s ease;
+/* --------------------------------------------------------------------------
+   14. TOASTS & MODALS
+   -------------------------------------------------------------------------- */
+.toast {
+  background: rgba(28, 46, 36, 0.92) !important;
+  backdrop-filter: blur(32px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(180%) !important;
+  border: 1px solid rgba(104, 235, 165, 0.35) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.35) !important;
+  border-radius: 1.25rem !important;
+  padding: 12px 20px;
+  box-shadow: 0 20px 48px rgba(10, 18, 14, 0.7), 0 0 30px rgba(104, 235, 165, 0.15) !important;
+  color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 280px;
 }
 
-@keyframes shake {
-
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-
-  20% {
-    transform: translateX(-8px);
-  }
-
-  40% {
-    transform: translateX(8px);
-  }
-
-  60% {
-    transform: translateX(-4px);
-  }
-
-  80% {
-    transform: translateX(4px);
-  }
+.modal-overlay,
+.modal-backdrop,
+#sidebar-overlay {
+  background-color: rgba(14, 24, 18, 0.75) !important;
+  backdrop-filter: blur(18px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
 }
 
-/* ========== 3-STEP DELETE CONFIRMATION ========== */
+.modal-overlay.show {
+  display: flex !important;
+}
+
+.modal-content,
+[id$="-modal"] > div.bg-surface-800,
+[id$="-modal"] .bg-surface-800,
+[id$="-modal"] > div:not(.modal-overlay) {
+  background: rgba(26, 44, 34, 0.9) !important;
+  backdrop-filter: blur(36px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(180%) !important;
+  border: 1px solid rgba(104, 235, 165, 0.3) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.4) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 
+    0 35px 80px -15px rgba(10, 18, 14, 0.85),
+    inset 0 1.5px 2px 0 rgba(255, 255, 255, 0.3),
+    0 0 50px 0 rgba(104, 235, 165, 0.15) !important;
+  border-radius: 1.75rem !important;
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   15. DATA TABLE & ROWS (Smoky Moss Translucent Rows)
+   -------------------------------------------------------------------------- */
+.expense-row,
+.income-row,
+.goal-card {
+  background: rgba(24, 40, 31, 0.6) !important;
+  backdrop-filter: blur(16px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(170%) !important;
+  border: 1px solid rgba(104, 235, 165, 0.15) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 1rem !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(10, 18, 14, 0.3) !important;
+}
+
+.expense-row:hover,
+.income-row:hover,
+.goal-card:hover {
+  background: rgba(32, 52, 41, 0.75) !important;
+  border-color: rgba(104, 235, 165, 0.38) !important;
+  box-shadow: 0 8px 24px rgba(10, 18, 14, 0.45), 0 0 20px rgba(104, 235, 165, 0.12) !important;
+}
+
 .delete-step {
   display: none;
-  animation: deleteFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .delete-step.active {
   display: flex;
 }
 
-@keyframes deleteFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.expense-row {
-  position: relative;
-  transition: all 0.3s ease;
-}
-
-.expense-row.deleting {
-  animation: deleteSlide 0.4s cubic-bezier(0.4, 0, 1, 1) forwards;
-}
-
-@keyframes deleteSlide {
-  0% {
-    opacity: 1;
-    transform: translateX(0);
-    max-height: 80px;
-  }
-
-  50% {
-    opacity: 0.3;
-    transform: translateX(60px);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateX(100px);
-    max-height: 0;
-    padding: 0;
-    margin: 0;
-    overflow: hidden;
-  }
-}
-
 .delete-btn-step1 {
   opacity: 0;
-  transition: opacity 0.2s;
 }
 
 .expense-row:hover .delete-btn-step1,
@@ -715,53 +845,20 @@ textarea:focus {
   opacity: 1;
 }
 
-/* Unique Dashboard Styling */
-.hero-glass {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(243, 244, 246, 0.75) 100%);
-  position: relative;
-  overflow: hidden;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 20px 45px -10px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+/* --------------------------------------------------------------------------
+   16. TIMER & POMODORO
+   -------------------------------------------------------------------------- */
+.timer-ring {
+  transform: rotate(-90deg);
 }
 
-.dark .hero-glass {
-  background: linear-gradient(135deg, rgba(30, 27, 75, 0.45) 0%, rgba(15, 23, 42, 0.85) 60%, rgba(10, 15, 30, 0.95) 100%);
-  border: 1px solid rgba(99, 102, 241, 0.25);
-  border-top-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+.kanban-col {
+  min-height: 200px;
 }
 
-.hero-glass::before {
-  content: '';
-  position: absolute;
-  top: -60px;
-  right: -60px;
-  width: 240px;
-  height: 240px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, rgba(168, 85, 247, 0.15) 50%, transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
-  animation: float 10s ease-in-out infinite alternate;
-}
-
-.score-circle {
-  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.scratchpad-box {
-  background: rgba(248, 250, 252, 0.8);
-  border: 1px dashed rgba(203, 213, 225, 0.8);
-}
-
-.dark .scratchpad-box {
-  background: rgba(15, 23, 42, 0.4);
-  border-color: rgba(51, 65, 85, 0.8);
-}
-
-
-/* ========== NATIVE MOBILE APP OPTIMIZATIONS ========== */
+/* --------------------------------------------------------------------------
+   17. MOBILE SAFE AREAS & CLEAN OVERRIDES
+   -------------------------------------------------------------------------- */
 .safe-area-pb {
   padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
 }
@@ -774,176 +871,78 @@ select {
   touch-action: manipulation;
 }
 
-body {
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: none;
-}
-
-/* Mobile responsive card adjustments */
-@media (max-width: 640px) {
-  .modal-content {
-    margin: 0;
-    width: 100% !important;
-    max-height: 92vh !important;
-    border-bottom-left-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
-  }
-}
-
-/* ========================================================
-   TOTAL 3D SYSTEM & ULTRA-SMOOTH DIMENSIONAL ANIMATIONS
-   ======================================================== */
-
-/* 1. Global Perspective & Canvas Backplane */
-#three-spatial-canvas-container {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  overflow: hidden;
-}
-
-body {
-  perspective: 1200px;
-  transform-style: preserve-3d;
-}
-
-#app,
-#auth-screen {
-  position: relative;
-  z-index: 2;
-}
-
-/* 2. Interactive 3D Cursor Spotlight */
-.three-cursor-spotlight {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 500px;
-  height: 500px;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 1;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.05) 40%, transparent 70%);
-  filter: blur(40px);
-  will-change: transform;
-  mix-blend-mode: screen;
-}
-
-.dark .three-cursor-spotlight {
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, rgba(168, 85, 247, 0.08) 45%, transparent 75%);
-}
-
-/* 3. 3D Card Physics & Interactive Tilt */
-.card-3d-interactive {
-  transform-style: preserve-3d;
-  will-change: transform, box-shadow;
-  backface-visibility: hidden;
-  position: relative;
-  transition: transform 0.5s cubic-bezier(0.2, 1, 0.22, 1), box-shadow 0.5s ease;
-}
-
-.card-3d-interactive:hover {
-  box-shadow:
-    0 20px 40px -15px rgba(99, 102, 241, 0.15),
-    0 0 25px -5px rgba(99, 102, 241, 0.1),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.4);
-}
-
-.dark .card-3d-interactive:hover {
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.7),
-    0 0 30px -5px rgba(99, 102, 241, 0.25),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.15);
-}
-
-/* 3D Reflection Glare */
+#three-spatial-canvas-container,
+.three-cursor-spotlight,
 .card-3d-glare {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: 5;
-  mix-blend-mode: overlay;
+  display: none !important;
 }
 
-/* 4. Float 3D Levitation Animations */
-@keyframes float3D {
-  0% {
-    transform: perspective(1000px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg);
-  }
-
-  50% {
-    transform: perspective(1000px) translate3d(0, -8px, 12px) rotateX(2deg) rotateY(-1deg);
-  }
-
-  100% {
-    transform: perspective(1000px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg);
-  }
+/* --------------------------------------------------------------------------
+   18. FINTECH SEGMENTED PILLS & DATA VISUALIZATION COMPONENTS
+   -------------------------------------------------------------------------- */
+.fintech-pill-group {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(18, 30, 24, 0.75) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border: 1px solid rgba(104, 235, 165, 0.2) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border-radius: 9999px !important;
+  padding: 3px;
+  gap: 2px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3) !important;
 }
 
-@keyframes pulseGlow3D {
-
-  0%,
-  100% {
-    box-shadow: 0 0 15px rgba(99, 102, 241, 0.2), 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-  }
-
-  50% {
-    box-shadow: 0 0 30px rgba(129, 140, 248, 0.45), 0 20px 35px -5px rgba(99, 102, 241, 0.25);
-  }
+.fintech-pill-btn {
+  border-radius: 9999px;
+  padding: 5px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #a4c2b0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
-.animate-float-3d {
-  animation: float3D 6s ease-in-out infinite;
+.fintech-pill-btn:hover {
+  color: #68eba5;
 }
 
-.animate-glow-3d {
-  animation: pulseGlow3D 4s ease-in-out infinite;
+.fintech-pill-btn.active {
+  background: #68eba5 !important;
+  color: #072516 !important;
+  font-weight: 700 !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 4px 16px rgba(104, 235, 165, 0.45) !important;
 }
 
-/* 5. Enhanced Glassmorphic 3D Elevate */
-.card,
-.hero-glass,
-.auth-card {
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+.fintech-day-tile {
+  min-width: 28px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid rgba(104, 235, 165, 0.16);
+  background: rgba(20, 34, 26, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #a4c2b0;
 }
 
-/* 3D Depth on Buttons & Badges */
-.nav-link {
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-  transform-style: preserve-3d;
+.fintech-day-tile.active-low {
+  background: rgba(28, 56, 40, 0.75);
+  color: #a7f3d0;
+  border-color: rgba(104, 235, 165, 0.4);
 }
 
-.nav-link:hover {
-  transform: translate3d(4px, 0, 6px);
-}
-
-.streak-badge {
-  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.25);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.streak-badge:hover {
-  transform: scale(1.08) rotate(-2deg);
-}
-
-/* Smooth dimensional page entry */
-@keyframes dimensionalPageEnter {
-  0% {
-    opacity: 0;
-    transform: perspective(1200px) translate3d(0, 20px, -40px) rotateX(4deg);
-  }
-
-  100% {
-    opacity: 1;
-    transform: perspective(1200px) translate3d(0, 0, 0) rotateX(0deg);
-  }
-}
-
-#page-content.page-enter {
-  animation: dimensionalPageEnter 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.fintech-day-tile.active-high {
+  background: #68eba5;
+  color: #072516;
+  border-color: #68eba5;
+  box-shadow: 0 0 14px rgba(104, 235, 165, 0.55);
 }

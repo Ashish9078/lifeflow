@@ -357,13 +357,30 @@ async function registerUser(name, email, password) {
     createdAt: new Date().toISOString(),
   };
 
-  // 3. Save to Cloud Firestore so mobile and other devices can log in immediately
+  // 3. Save to Cloud (Firestore & Supabase) so mobile and other devices can log in immediately
   if (db) {
     try {
       await db.collection('lifeflow_users').doc(cleanEmail).set(newUser);
       console.log('✅ Successfully registered user to Cloud Firestore:', cleanEmail);
     } catch (err) {
       console.error('Failed to save user to Cloud Firestore:', err);
+    }
+  }
+
+  const sbCfg = getSupabaseConfig();
+  if (sbCfg.enabled && sbCfg.url && sbCfg.key && typeof window.supabase !== 'undefined') {
+    try {
+      const client = window.supabase.createClient(sbCfg.url, sbCfg.key);
+      await client.from('lifeflow_sync').upsert({
+        id: `user_account_${cleanEmail}`,
+        user_id: 'global_auth',
+        key: `user_account_${cleanEmail}`,
+        data: newUser,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+      console.log('✅ Successfully registered user to Supabase Cloud:', cleanEmail);
+    } catch (err) {
+      console.warn('Supabase user registration sync note:', err);
     }
   }
 
@@ -411,15 +428,46 @@ async function loginUser(email, password) {
     }
   }
 
-  // 2. Fallback to local users list if not found in cloud or if offline
+  // 2. Check Supabase Cloud if not found in Firestore
+  if (!user) {
+    const sbCfg = getSupabaseConfig();
+    if (sbCfg.enabled && sbCfg.url && sbCfg.key && typeof window.supabase !== 'undefined') {
+      try {
+        const client = window.supabase.createClient(sbCfg.url, sbCfg.key);
+        const { data, error } = await client.from('lifeflow_sync')
+          .select('*')
+          .eq('id', `user_account_${cleanEmail}`)
+          .maybeSingle();
+
+        if (data && data.data) {
+          const cloudUser = data.data;
+          if (cloudUser.password === hashedPw) {
+            user = cloudUser;
+            const users = getUsers();
+            const idx = users.findIndex(u => u.email.toLowerCase() === cleanEmail);
+            if (idx >= 0) {
+              users[idx] = cloudUser;
+            } else {
+              users.push(cloudUser);
+            }
+            saveUsers(users);
+          } else {
+            return { success: false, error: 'Invalid email or password.' };
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase cloud login lookup note:', err);
+      }
+    }
+  }
+
+  // 3. Fallback to local users list if offline
   if (!user) {
     const users = getUsers();
     user = users.find(u => u.email.toLowerCase() === cleanEmail && u.password === hashedPw);
-    // If found locally and cloud is active, sync user to cloud so other devices can use it
     if (user && db) {
       try {
         await db.collection('lifeflow_users').doc(cleanEmail).set(user, { merge: true });
-        console.log('☁️ Backed up local user to Cloud Firestore:', cleanEmail);
       } catch (e) {}
     }
   }
@@ -566,7 +614,41 @@ ensureDemoAccount();
 let realtimeUnsubscribe = null;
 let isApplyingCloudUpdate = false;
 
+function cleanSupabaseUrl(url) {
+  if (!url) return '';
+  let cleaned = url.trim();
+  cleaned = cleaned.replace(/\/rest\/v1\/?$/i, '');
+  cleaned = cleaned.replace(/\/+$/, '');
+  return cleaned;
+}
+
+function getSupabaseConfig() {
+  const savedUrl = memoryStorage.getItem(STORAGE_KEYS.supabaseUrl);
+  const savedKey = memoryStorage.getItem(STORAGE_KEYS.supabaseKey);
+  const savedEnabled = memoryStorage.getItem(STORAGE_KEYS.supabaseEnabled);
+
+  return {
+    url: cleanSupabaseUrl(savedUrl || 'https://mwbcfpwfnwghjmpnbikc.supabase.co'),
+    key: (savedKey || 'sb_publishable_1n9Jvm3HFWJvia8ldE45HA_02J1-PCd').trim(),
+    enabled: savedEnabled !== null ? savedEnabled === 'true' : true
+  };
+}
+
+function saveSupabaseConfig(url, key, enabled) {
+  const cleanedUrl = cleanSupabaseUrl(url);
+  memoryStorage.setItem(STORAGE_KEYS.supabaseUrl, cleanedUrl || '');
+  memoryStorage.setItem(STORAGE_KEYS.supabaseKey, (key || '').trim());
+  memoryStorage.setItem(STORAGE_KEYS.supabaseEnabled, enabled ? 'true' : 'false');
+}
+
+// Auto-seed user's Supabase project credentials if not yet set
+if (!memoryStorage.getItem(STORAGE_KEYS.supabaseUrl)) {
+  saveSupabaseConfig('https://mwbcfpwfnwghjmpnbikc.supabase.co', 'sb_publishable_1n9Jvm3HFWJvia8ldE45HA_02J1-PCd', true);
+}
+
 function isSupabaseConnected() {
+  const cfg = getSupabaseConfig();
+  if (cfg.enabled && cfg.url && cfg.key) return true;
   return db !== null;
 }
 
@@ -626,113 +708,214 @@ function stopRealtimeCloudSync() {
   }
 }
 
-// Overwrite the old sync to Supabase function calls to sync to Firebase
+// Sync key to Supabase or Firebase
 async function syncKeyToSupabase(key, val) {
-  if (!db || isApplyingCloudUpdate) return;
-  // Ignore config keys
-  if (
-    key === STORAGE_KEYS.supabaseUrl ||
-    key === STORAGE_KEYS.supabaseKey ||
-    key === STORAGE_KEYS.supabaseEnabled
-  ) return;
+  if (isApplyingCloudUpdate) return;
+  if (GLOBAL_STORAGE_KEYS.has(key)) return;
 
-  try {
-    const userEmail = getCurrentUserEmail();
-    const docRef = db.collection('lifeflow_data').doc(userEmail);
-    await docRef.set({
-      [key]: val,
-      updated_at: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-  } catch (err) {
-    console.warn(`Firebase sync warning for key "${key}":`, err);
+  // 1. Supabase sync
+  const cfg = getSupabaseConfig();
+  if (cfg.enabled && cfg.url && cfg.key && typeof window.supabase !== 'undefined') {
+    try {
+      const client = window.supabase.createClient(cfg.url, cfg.key);
+      const user = getCurrentUser();
+      const userId = user ? user.id : 'guest';
+      await client.from('lifeflow_sync').upsert({
+        id: `${userId}_${key}`,
+        user_id: userId,
+        key: key,
+        data: val,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    } catch (e) {
+      console.warn('Supabase sync warning:', e);
+    }
+  }
+
+  // 2. Firebase sync
+  if (db) {
+    try {
+      const userEmail = getCurrentUserEmail();
+      const docRef = db.collection('lifeflow_data').doc(userEmail);
+      await docRef.set({
+        [key]: val,
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch (err) {
+      console.warn(`Firebase sync warning for key "${key}":`, err);
+    }
   }
 }
 
 async function testSupabaseConnection(url, key) {
-  return { success: true, message: 'Firebase connection successful' };
+  const cleanedUrl = cleanSupabaseUrl(url);
+  const cleanKey = (key || '').trim();
+  if (!cleanedUrl || !cleanKey) {
+    return { success: false, message: 'Please provide both Project URL and Anon Key' };
+  }
+  try {
+    if (typeof window.supabase !== 'undefined') {
+      const client = window.supabase.createClient(cleanedUrl, cleanKey);
+      const { data, error } = await client.from('lifeflow_sync').select('id').limit(1);
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        if (error.code === '42P01' || msg.includes('does not exist') || msg.includes('not found')) {
+          return { success: true, tableMissing: true, message: 'Table lifeflow_sync missing' };
+        }
+        return { success: false, message: error.message };
+      }
+      return { success: true, message: 'Supabase connected successfully!' };
+    }
+    return { success: true, message: 'Credentials saved' };
+  } catch (err) {
+    return { success: false, message: err.message || 'Connection failed' };
+  }
 }
 
 async function pushAllToSupabase() {
-  if (!db) return { success: false, message: 'Firebase not connected' };
-  
-  try {
-    const userEmail = getCurrentUserEmail();
-    const docRef = db.collection('lifeflow_data').doc(userEmail);
-    
-    // Gather all data from memoryStorage and localStorage
-    const dataToPush = {};
-    for (const [k, v] of Object.entries(memoryStorage.data)) {
-      if (GLOBAL_STORAGE_KEYS.has(k)) continue;
-      try {
-        dataToPush[k] = JSON.parse(v);
-      } catch(e) {
-        dataToPush[k] = v;
+  const cfg = getSupabaseConfig();
+
+  // 1. Push to Supabase if enabled
+  if (cfg.enabled && cfg.url && cfg.key && typeof window.supabase !== 'undefined') {
+    try {
+      const client = window.supabase.createClient(cfg.url, cfg.key);
+      const user = getCurrentUser();
+      const userId = user ? user.id : 'guest';
+      const payload = [];
+
+      for (const [k, v] of Object.entries(memoryStorage.data)) {
+        if (GLOBAL_STORAGE_KEYS.has(k)) continue;
+        let parsedVal;
+        try { parsedVal = JSON.parse(v); } catch (e) { parsedVal = v; }
+        payload.push({
+          id: `${userId}_${k}`,
+          user_id: userId,
+          key: k,
+          data: parsedVal,
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      if (payload.length > 0) {
+        const { error } = await client.from('lifeflow_sync').upsert(payload, { onConflict: 'id' });
+        if (error) throw error;
+      }
+      return { success: true, count: payload.length, message: `Successfully pushed ${payload.length} modules to Supabase!` };
+    } catch (err) {
+      console.error('Supabase push error:', err);
+      if (!db) {
+        return { success: false, message: 'Error pushing to Supabase: ' + err.message };
       }
     }
+  }
 
+  // 2. Fallback to Firebase
+  if (db) {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        for (let i = 0; i < window.localStorage.length; i++) {
-          const lk = window.localStorage.key(i);
-          if (lk && lk.startsWith('lifeflow_') && !GLOBAL_STORAGE_KEYS.has(lk)) {
-            if (dataToPush[lk] === undefined) {
-              const lv = window.localStorage.getItem(lk);
-              try {
-                dataToPush[lk] = JSON.parse(lv);
-              } catch(e) {
-                dataToPush[lk] = lv;
-              }
-            }
-          }
+      const userEmail = getCurrentUserEmail();
+      const docRef = db.collection('lifeflow_data').doc(userEmail);
+      
+      const dataToPush = {};
+      for (const [k, v] of Object.entries(memoryStorage.data)) {
+        if (GLOBAL_STORAGE_KEYS.has(k)) continue;
+        try {
+          dataToPush[k] = JSON.parse(v);
+        } catch(e) {
+          dataToPush[k] = v;
         }
       }
-    } catch(e) {}
 
-    dataToPush.updated_at = firebase.firestore.FieldValue.serverTimestamp();
-    
-    await docRef.set(dataToPush, { merge: true });
-    return { success: true, count: Object.keys(dataToPush).length, message: 'Successfully pushed to Firebase' };
-  } catch (err) {
-    console.error('Firebase push error:', err);
-    return { success: false, message: 'Error pushing to cloud: ' + err.message };
+      dataToPush.updated_at = firebase.firestore.FieldValue.serverTimestamp();
+      await docRef.set(dataToPush, { merge: true });
+      return { success: true, count: Object.keys(dataToPush).length, message: 'Successfully pushed to Firebase' };
+    } catch (err) {
+      console.error('Firebase push error:', err);
+      return { success: false, message: 'Error pushing to cloud: ' + err.message };
+    }
   }
+
+  return { success: false, message: 'No cloud database connected' };
 }
 
 async function pullAllFromSupabase() {
-  if (!db) return { success: false, message: 'Firebase not connected' };
-  
-  try {
-    const userEmail = getCurrentUserEmail();
-    const docRef = db.collection('lifeflow_data').doc(userEmail);
-    const doc = await docRef.get();
-    
-    if (doc.exists) {
-      const data = doc.data();
-      let count = 0;
-      isApplyingCloudUpdate = true;
-      try {
-        for (const [k, v] of Object.entries(data)) {
-          if (k !== 'updated_at') {
-            const serialized = JSON.stringify(v);
-            memoryStorage.setItem(k, serialized);
-            count++;
-          }
+  const cfg = getSupabaseConfig();
+
+  // 1. Pull from Supabase if enabled
+  if (cfg.enabled && cfg.url && cfg.key && typeof window.supabase !== 'undefined') {
+    try {
+      const client = window.supabase.createClient(cfg.url, cfg.key);
+      const user = getCurrentUser();
+      const userId = user ? user.id : 'guest';
+      const { data, error } = await client.from('lifeflow_sync').select('*').eq('user_id', userId);
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        isApplyingCloudUpdate = true;
+        try {
+          data.forEach(row => {
+            memoryStorage.setItem(row.key, JSON.stringify(row.data));
+          });
+        } finally {
+          isApplyingCloudUpdate = false;
         }
-      } finally {
-        isApplyingCloudUpdate = false;
+        return { success: true, count: data.length, message: `Successfully loaded ${data.length} modules from Supabase!` };
       }
-      return { success: true, count, message: 'Successfully pulled from Firebase' };
-    } else {
-      return { success: true, count: 0, message: 'No data found in cloud' };
+      return { success: true, count: 0, message: 'No data found in Supabase yet.' };
+    } catch (err) {
+      console.error('Supabase pull error:', err);
+      if (!db) {
+        return { success: false, message: 'Error pulling from Supabase: ' + err.message };
+      }
     }
-  } catch (err) {
-    console.error('Firebase pull error:', err);
-    return { success: false, message: 'Error pulling from cloud: ' + err.message };
   }
+
+  // 2. Fallback to Firebase
+  if (db) {
+    try {
+      const userEmail = getCurrentUserEmail();
+      const docRef = db.collection('lifeflow_data').doc(userEmail);
+      const doc = await docRef.get();
+      
+      if (doc.exists) {
+        const data = doc.data();
+        let count = 0;
+        isApplyingCloudUpdate = true;
+        try {
+          for (const [k, v] of Object.entries(data)) {
+            if (k !== 'updated_at') {
+              const serialized = JSON.stringify(v);
+              memoryStorage.setItem(k, serialized);
+              count++;
+            }
+          }
+        } finally {
+          isApplyingCloudUpdate = false;
+        }
+        return { success: true, count, message: 'Successfully pulled from Firebase' };
+      } else {
+        return { success: true, count: 0, message: 'No data found in cloud' };
+      }
+    } catch (err) {
+      console.error('Firebase pull error:', err);
+      return { success: false, message: 'Error pulling from cloud: ' + err.message };
+    }
+  }
+
+  return { success: false, message: 'No cloud database connected' };
 }
 
 function getSupabaseSqlSchema() {
-  return '-- No SQL needed for Firebase Firestore';
+  return `CREATE TABLE IF NOT EXISTS lifeflow_sync (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  key TEXT NOT NULL,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE lifeflow_sync ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow anon read write on lifeflow_sync"
+  ON lifeflow_sync FOR ALL TO anon, authenticated
+  USING (true) WITH CHECK (true);`;
 }
 
 // ========== DEFAULT MOCK DATA ==========

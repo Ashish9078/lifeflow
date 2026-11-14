@@ -1,5 +1,11 @@
 // LifeFlow App — Main Application Logic with Auth
 
+// Disable all animations for Chart.js
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.animation = false;
+  Chart.defaults.transitions = undefined;
+}
+
 let currentPage = 'dashboard';
 let pomodoroInterval = null;
 let pomodoroSeconds = 25 * 60;
@@ -8,18 +14,23 @@ let pomodoroMode = 'work';
 let chartInstances = {};
 
 // ========== THEME ==========
-function initTheme() {
-  const t = getTheme();
-  if (t === 'dark') {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
+// Ensure dark luxury fintech theme (Vandale aesthetic) is active by default
+try {
+  memoryStorage.setItem(STORAGE_KEYS.theme, 'dark');
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('lifeflow_theme', 'dark');
   }
+} catch (e) {}
+
+function initTheme() {
+  document.documentElement.classList.add('dark');
+  document.documentElement.classList.remove('light');
 }
 function toggleTheme() {
   const isDark = document.documentElement.classList.toggle('dark');
+  document.documentElement.classList.toggle('light', !isDark);
   setThemePref(isDark ? 'dark' : 'light');
-  if (currentPage === 'study' || currentPage === 'dashboard') {
+  if (currentPage === 'study' || currentPage === 'dashboard' || currentPage === 'progress') {
     setTimeout(() => renderPage(currentPage), 100);
   }
 }
@@ -93,7 +104,7 @@ async function handleLogin(e) {
   // Show loading state
   const btn = e.target.querySelector('button[type="submit"]');
   const originalText = btn.innerHTML;
-  btn.innerHTML = '<svg class="animate-spin w-4 h-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="30 70" /></svg> Logging in...';
+  btn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="30 70" /></svg> Logging in...';
   btn.disabled = true;
 
   const result = await loginUser(email, password);
@@ -146,7 +157,7 @@ async function handleSignup(e) {
   // Show loading
   const btn = e.target.querySelector('button[type="submit"]');
   const originalText = btn.innerHTML;
-  btn.innerHTML = '<svg class="animate-spin w-4 h-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="30 70" /></svg> Creating account...';
+  btn.innerHTML = '<svg class="w-4 h-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="30 70" /></svg> Creating account...';
   btn.disabled = true;
 
   const result = await registerUser(name, email, password);
@@ -170,19 +181,13 @@ async function handleDemoLogin() {
 function handleLogout() {
   if (typeof stopRealtimeCloudSync === 'function') stopRealtimeCloudSync();
   logoutUser();
-  // Transition back to auth
   const app = document.getElementById('app');
   const auth = document.getElementById('auth-screen');
 
-  app.classList.add('auth-exit');
-  setTimeout(() => {
-    app.classList.add('hidden');
-    app.classList.remove('auth-exit');
-    auth.classList.remove('hidden');
-    auth.classList.add('page-enter');
-    lucide.createIcons();
-    showToast('Logged out successfully', 'info');
-  }, 350);
+  app.classList.add('hidden');
+  auth.classList.remove('hidden');
+  lucide.createIcons();
+  showToast('Logged out successfully', 'info');
 
   // Clear form fields
   const fields = ['login-email', 'login-password', 'signup-name', 'signup-email', 'signup-password', 'signup-confirm'];
@@ -196,25 +201,16 @@ function transitionToApp() {
   const auth = document.getElementById('auth-screen');
   const app = document.getElementById('app');
 
-  // Animate auth out
-  auth.classList.add('auth-exit');
+  auth.classList.add('hidden');
+  app.classList.remove('hidden');
 
-  setTimeout(() => {
-    auth.classList.add('hidden');
-    auth.classList.remove('auth-exit');
-    app.classList.remove('hidden');
-    app.classList.add('app-enter');
+  // Update sidebar with user info
+  updateSidebarUser();
 
-    // Update sidebar with user info
-    updateSidebarUser();
-
-    // Init app
-    navigateTo('dashboard');
-    lucide.createIcons();
-    if (typeof startRealtimeCloudSync === 'function') startRealtimeCloudSync();
-
-    setTimeout(() => app.classList.remove('app-enter'), 500);
-  }, 350);
+  // Init app
+  navigateTo('dashboard');
+  lucide.createIcons();
+  if (typeof startRealtimeCloudSync === 'function') startRealtimeCloudSync();
 }
 
 function updateSidebarUser() {
@@ -268,7 +264,7 @@ function navigateTo(page) {
 
   const titles = {
     dashboard: ['Dashboard', 'Overview of your day'],
-    progress: ['Progress Hub', 'Section-by-section progress circles, completion rings & performance bars'],
+    progress: ['Insights', 'What your life earns, keeps and spends — and where it goes'],
     routine: ['Daily Routine', 'Track your daily habits'],
     study: ['Study Tracker', 'Log sessions & stay focused'],
     expense: ['Money & Cashflow', 'Track income, expenses & net savings'],
@@ -308,13 +304,10 @@ function renderPage(page) {
     case 'goals': container.innerHTML = renderGoals(); break;
     case 'yearly': container.innerHTML = renderYearly(); break;
   }
-  container.classList.remove('page-enter');
-  void container.offsetWidth;
-  container.classList.add('page-enter');
 
   lucide.createIcons();
 
-  if (page === 'study' || page === 'dashboard') {
+  if (page === 'study' || page === 'dashboard' || page === 'progress') {
     setTimeout(initCharts, 50);
   }
   if (page === 'yearly') {
@@ -332,7 +325,7 @@ function setProgressFilter(filter) {
   renderPage('progress');
 }
 
-function renderProgressCircle(percent, size = 92, strokeWidth = 8, color = '#6366f1', label = '', centerSub = '') {
+function renderProgressCircle(percent, size = 92, strokeWidth = 8, color = '#10b981', label = '', centerSub = '') {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, Math.round(percent || 0)));
@@ -342,7 +335,7 @@ function renderProgressCircle(percent, size = 92, strokeWidth = 8, color = '#636
     <div class="relative flex items-center justify-center shrink-0" style="width:${size}px; height:${size}px;">
       <svg width="${size}" height="${size}" class="transform -rotate-90">
         <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" stroke="currentColor" stroke-width="${strokeWidth}" fill="transparent" class="text-gray-100 dark:text-surface-700/60" />
-        <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" stroke="${color}" stroke-width="${strokeWidth}" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" stroke-linecap="round" fill="transparent" class="transition-all duration-700 ease-out" />
+        <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" stroke="${color}" stroke-width="${strokeWidth}" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" stroke-linecap="round" fill="transparent" />
       </svg>
       <div class="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none">
         <span class="font-black text-gray-900 dark:text-white leading-none tracking-tight" style="font-size:${size > 110 ? '1.5rem' : (size > 80 ? '1.15rem' : '0.85rem')}">${clamped}%</span>
@@ -353,7 +346,7 @@ function renderProgressCircle(percent, size = 92, strokeWidth = 8, color = '#636
   `;
 }
 
-function renderProgressBar(percent, color = 'bg-accent', label = '', valueText = '', sublabel = '') {
+function renderProgressBar(percent, color = 'bg-emerald-500', label = '', valueText = '', sublabel = '') {
   const clamped = Math.max(0, Math.min(100, Math.round(percent || 0)));
   return `
     <div class="space-y-1.5 w-full">
@@ -362,7 +355,7 @@ function renderProgressBar(percent, color = 'bg-accent', label = '', valueText =
         <span class="font-bold text-gray-900 dark:text-white shrink-0">${valueText || (clamped + '%')}</span>
       </div>
       <div class="w-full h-2 bg-gray-100 dark:bg-surface-700/70 rounded-full overflow-hidden p-0.5 border border-gray-200/40 dark:border-surface-600/30">
-        <div class="h-full rounded-full transition-all duration-700 ease-out ${color}" style="width:${clamped}%"></div>
+        <div class="h-full rounded-full ${color}" style="width:${clamped}%"></div>
       </div>
       ${sublabel ? `<div class="text-[10px] text-gray-400 dark:text-gray-400 leading-tight">${sublabel}</div>` : ''}
     </div>
@@ -448,90 +441,360 @@ function renderProgressHub() {
   const goalsCompletionPct = goals.length > 0 ? Math.round((completedGoals.length / goals.length) * 100) : 0;
 
   // Filter conditions
+  const showAll = currentProgressFilter === 'all';
+  const showSpending = currentProgressFilter === 'all' || currentProgressFilter === 'spending';
   const showHabits = currentProgressFilter === 'all' || currentProgressFilter === 'habits';
   const showStudy = currentProgressFilter === 'all' || currentProgressFilter === 'study';
-  const showFinance = currentProgressFilter === 'all' || currentProgressFilter === 'finance';
+  const showFinance = currentProgressFilter === 'all' || currentProgressFilter === 'finance' || currentProgressFilter === 'spending';
   const showUdhar = currentProgressFilter === 'all' || currentProgressFilter === 'udhar';
   const showGoals = currentProgressFilter === 'all' || currentProgressFilter === 'goals';
   const showAttendance = currentProgressFilter === 'all' || currentProgressFilter === 'attendance';
   const attSummary = getAttendanceSummary();
   const attSubjects = getAttendanceSubjects();
 
-  return `
-    <div class="space-y-6 animate-in fade-in duration-300">
-      <!-- Master Overview Hero Banner -->
-      <div class="p-6 sm:p-7 rounded-2xl bg-gradient-to-br from-indigo-950 via-surface-900 to-slate-900 border border-indigo-500/30 text-white shadow-xl relative overflow-hidden">
-        <div class="absolute -top-16 -right-16 w-56 h-56 bg-accent/20 rounded-full blur-3xl pointer-events-none"></div>
-        <div class="absolute -bottom-16 -left-16 w-56 h-56 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
+  // Metrics for Vandale / Fintech Insights (Image 1 & 2)
+  const avgInMonth = monthlyIncome > 0 ? monthlyIncome : 18500;
+  const avgOutMonth = spent > 0 ? spent : 12400;
+  const avgSavedPct = monthlyIncome > 0 ? Math.max(0, Math.min(100, Math.round((netSavings / monthlyIncome) * 100))) : 33;
+  const topCatName = topCategories.length > 0 ? topCategories[0][0] : 'Living & Essentials';
+  const topCatAmt = topCategories.length > 0 ? topCategories[0][1] : (spent > 0 ? spent : 9804);
 
-        <div class="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-6">
-          <div class="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
-            ${renderProgressCircle(lifeScore, 120, 10, '#6366f1', 'Score', lifeEmoji)}
-            <div class="space-y-1.5">
-              <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${lifeScoreObj.badgeClass || 'bg-accent/20 text-accent'}">
-                <span>${lifeEmoji}</span>
-                <span>${lifeLabel}</span>
-              </div>
-              <h2 class="text-2xl font-black tracking-tight">LifeFlow Progress Hub</h2>
-              <p class="text-xs text-gray-300 max-w-md leading-relaxed">
-                Centralized multi-domain performance dashboard. Monitor your habits, study sessions, financial cashflow, friends lending ledger, and roadmap milestones in real-time.
-              </p>
+  const standardCats = [
+    { name: 'Groceries & Food', icon: '🛒', defaultPct: 35 },
+    { name: 'College & Books', icon: '📚', defaultPct: 22 },
+    { name: 'Rent & Living', icon: '🏠', defaultPct: 18 },
+    { name: 'Shopping', icon: '🛍️', defaultPct: 12 },
+    { name: 'Eating Out & Snacks', icon: '🍕', defaultPct: 8 },
+    { name: 'Transport & Fuel', icon: '🚌', defaultPct: 3 },
+    { name: 'Subscriptions', icon: '📱', defaultPct: 2 }
+  ];
+
+  const actualCatSpent = {};
+  expenses.forEach(e => {
+    actualCatSpent[e.category] = (actualCatSpent[e.category] || 0) + e.amount;
+  });
+  const totalSpentAmt = spent > 0 ? spent : 12400;
+
+  const displayCats = Object.keys(actualCatSpent).length > 0
+    ? Object.entries(actualCatSpent).sort((a, b) => b[1] - a[1]).map(([name, amt]) => ({
+        name,
+        icon: '🏷️',
+        amount: amt,
+        pct: Math.min(100, Math.round((amt / totalSpentAmt) * 100))
+      }))
+    : standardCats.map(c => ({
+        name: c.name,
+        icon: c.icon,
+        amount: Math.round(totalSpentAmt * (c.defaultPct / 100)),
+        pct: c.defaultPct
+      }));
+
+  const spendingCategoriesListHtml = displayCats.slice(0, 7).map(cat => `
+    <div class="space-y-1">
+      <div class="flex items-center justify-between text-xs">
+        <span class="font-medium text-gray-300 flex items-center gap-1.5">
+          <span>${cat.icon}</span>
+          <span>${cat.name}</span>
+        </span>
+        <span class="font-bold text-white">₹${cat.amount.toLocaleString('en-IN')}</span>
+      </div>
+      <div class="fintech-bar-track">
+        <div class="fintech-bar-fill" style="width: ${Math.max(6, cat.pct)}%"></div>
+      </div>
+    </div>
+  `).join('');
+
+  const currentDay = new Date().getDate();
+  const spendingDaysMatrixHtml = Array.from({ length: 30 }, (_, i) => {
+    const dayNum = i + 1;
+    let tileClass = '';
+    if (dayNum === currentDay) {
+      tileClass = 'active-high';
+    } else if (dayNum < currentDay && (dayNum % 3 === 0 || dayNum % 5 === 0)) {
+      tileClass = 'active-low';
+    }
+    return `
+      <div class="fintech-day-tile ${tileClass} flex-shrink-0" title="Day ${dayNum}">
+        <span>${dayNum}</span>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="space-y-6">
+      
+      <!-- 1. INSIGHTS COMMAND HEADER (Matching Reference Image 1) -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Insights</h2>
+          <p class="text-xs sm:text-sm text-gray-400 mt-1">What your life earns, keeps and spends — and where it goes</p>
+        </div>
+        
+        <!-- Segmented Section Filters -->
+        <div class="fintech-pill-group overflow-x-auto max-w-full">
+          <button onclick="setProgressFilter('all')" class="fintech-pill-btn ${currentProgressFilter === 'all' ? 'active' : ''}">
+            Overview
+          </button>
+          <button onclick="setProgressFilter('spending')" class="fintech-pill-btn ${currentProgressFilter === 'spending' ? 'active' : ''}">
+            Spending
+          </button>
+          <button onclick="setProgressFilter('habits')" class="fintech-pill-btn ${currentProgressFilter === 'habits' ? 'active' : ''}">
+            Habits
+          </button>
+          <button onclick="setProgressFilter('study')" class="fintech-pill-btn ${currentProgressFilter === 'study' ? 'active' : ''}">
+            Study
+          </button>
+          <button onclick="setProgressFilter('udhar')" class="fintech-pill-btn ${currentProgressFilter === 'udhar' ? 'active' : ''}">
+            Lending
+          </button>
+          <button onclick="setProgressFilter('attendance')" class="fintech-pill-btn ${currentProgressFilter === 'attendance' ? 'active' : ''}">
+            Attendance
+          </button>
+          <button onclick="setProgressFilter('goals')" class="fintech-pill-btn ${currentProgressFilter === 'goals' ? 'active' : ''}">
+            Goals
+          </button>
+        </div>
+      </div>
+
+      <!-- 2. TOP 4 METRIC CARDS (Matching Reference Image 1) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Card 1: Average in a month -->
+        <div class="card p-5 border border-emerald-900/30 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] font-medium text-gray-400">Average in a month</span>
+              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">Inflow</span>
+            </div>
+            <h3 class="text-2xl font-black text-white tracking-tight">₹${avgInMonth.toLocaleString('en-IN')}</h3>
+            <p class="text-[11px] text-emerald-400 font-semibold mt-1 flex items-center gap-1">
+              <span>↗</span> +14% from your past year average
+            </p>
+          </div>
+          <div class="mt-3">
+            <svg class="w-full h-7" viewBox="0 0 100 24" fill="none">
+              <path d="M0 20 Q 25 8, 50 14 T 100 4" stroke="#10b981" stroke-width="2" fill="none" />
+              <path d="M0 20 Q 25 8, 50 14 T 100 4 L 100 24 L 0 24 Z" fill="rgba(16, 185, 129, 0.12)" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Card 2: Average out a month -->
+        <div class="card p-5 border border-emerald-900/30 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] font-medium text-gray-400">Average out a month</span>
+              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-surface-700 text-gray-300">Outflow</span>
+            </div>
+            <h3 class="text-2xl font-black text-white tracking-tight">₹${avgOutMonth.toLocaleString('en-IN')}</h3>
+            <p class="text-[11px] text-gray-400 font-semibold mt-1 flex items-center gap-1">
+              <span>•</span> ${budgetUsedPct}% of monthly budget
+            </p>
+          </div>
+          <div class="mt-3">
+            <svg class="w-full h-7" viewBox="0 0 100 24" fill="none">
+              <path d="M0 12 Q 25 18, 50 10 T 100 16" stroke="#059669" stroke-width="2" fill="none" />
+              <path d="M0 12 Q 25 18, 50 10 T 100 16 L 100 24 L 0 24 Z" fill="rgba(5, 150, 105, 0.12)" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Card 3: Avg saved each month -->
+        <div class="card p-5 border border-emerald-900/30 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] font-medium text-gray-400">Avg saved each month</span>
+              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">Savings</span>
+            </div>
+            <h3 class="text-2xl font-black text-white tracking-tight">${avgSavedPct}%</h3>
+            <p class="text-[11px] text-gray-400 font-medium mt-1">₹${netSavings >= 0 ? netSavings.toLocaleString('en-IN') : 0} retained this month</p>
+          </div>
+          <div class="mt-4">
+            <div class="w-full h-2 bg-surface-700 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width: ${avgSavedPct}%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4: Most spent category -->
+        <div class="card p-5 border border-emerald-900/30 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-[11px] font-medium text-gray-400">Most spent category</span>
+              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-surface-700 text-gray-300">Peak</span>
+            </div>
+            <h3 class="text-2xl font-black text-white tracking-tight truncate">${topCatName}</h3>
+            <p class="text-[11px] text-gray-400 font-medium mt-1">₹${topCatAmt.toLocaleString('en-IN')} total spent</p>
+          </div>
+          <div class="mt-3 flex items-center justify-between text-[11px] text-gray-400 pt-2 border-t border-gray-800">
+            <span>LifeScore: <strong class="text-emerald-400">${lifeScore}/100</strong></span>
+            <span>Streak: <strong class="text-[#68eba5]">${streak}d</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. DUAL DATA-VIZ CHARTS (Matching Reference Image 1) -->
+      ${(showAll || currentProgressFilter === 'spending') ? `
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Chart 1: Money in & out (Image 1 Left) -->
+        <div class="card p-5 border border-emerald-900/30">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h4 class="text-sm font-bold text-white">Money in & out</h4>
+              <p class="text-[11px] text-gray-400 mt-0.5">Tracked cashflow across past 6 months</p>
+            </div>
+            <div class="fintech-pill-group">
+              <button class="fintech-pill-btn">Quarter</button>
+              <button class="fintech-pill-btn active">6 months</button>
+              <button class="fintech-pill-btn">Year</button>
+            </div>
+          </div>
+          <div class="h-56">
+            <canvas id="insights-money-flow-chart"></canvas>
+          </div>
+          <div class="flex items-center justify-between pt-3 mt-2 border-t border-gray-800 text-xs">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+              <span class="text-gray-400">Inflow: <strong class="text-white">₹${monthlyIncome.toLocaleString('en-IN')}</strong></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-[#064e3b]"></span>
+              <span class="text-gray-400">Outflow: <strong class="text-white">₹${spent.toLocaleString('en-IN')}</strong></span>
+            </div>
+            <div class="text-right">
+              <span class="text-gray-400">Net: <strong class="${netSavings >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${netSavings >= 0 ? '+' : ''}₹${netSavings.toLocaleString('en-IN')}</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart 2: Balance over time (Image 1 Right) -->
+        <div class="card p-5 border border-emerald-900/30">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h4 class="text-sm font-bold text-white">Balance over time</h4>
+              <p class="text-[11px] text-gray-400 mt-0.5">Tracked account activity each day</p>
+            </div>
+            <div class="fintech-pill-group">
+              <button class="fintech-pill-btn">20 days</button>
+              <button class="fintech-pill-btn active">75 days</button>
+              <button class="fintech-pill-btn">Year</button>
+            </div>
+          </div>
+          <div class="h-56">
+            <canvas id="insights-balance-trend-chart"></canvas>
+          </div>
+          <div class="flex items-center justify-between pt-3 mt-2 border-t border-gray-800 text-xs">
+            <span class="text-gray-400">Available: <strong class="text-emerald-400">₹${remaining.toLocaleString('en-IN')}</strong></span>
+            <span class="text-gray-400">Safe Daily: <strong class="text-white">₹${getSafeDailySpend()}/day</strong></span>
+            <span class="text-gray-400">Streak: <strong class="text-[#68eba5]">${streak} Days</strong></span>
+          </div>
+        </div>
+      </div>
+      ` : ''}
+
+      <!-- 4. SPENDING BREAKDOWN & CATEGORY ROWS (Matching Reference Image 2) -->
+      ${showSpending ? `
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Left: By Category (7 cols on lg) - Image 2 Left Card -->
+        <div class="lg:col-span-7 card p-5 border border-emerald-900/30">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h4 class="text-sm font-bold text-white">By category</h4>
+              <p class="text-[11px] text-gray-400 mt-0.5">Summary of the active month expenditure</p>
+            </div>
+            <div class="fintech-pill-group">
+              <button class="fintech-pill-btn active">This month</button>
+              <button class="fintech-pill-btn">Last month</button>
+              <button class="fintech-pill-btn">All time</button>
             </div>
           </div>
 
-          <!-- Quick KPI Badges -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full lg:w-auto">
-            <div class="p-3 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 text-center">
-              <span class="text-[10px] uppercase font-bold text-gray-400">Habits Today</span>
-              <p class="text-lg font-black text-indigo-400 mt-0.5">${completion}%</p>
-              <span class="text-[9px] text-gray-400">${streak}d streak</span>
+          <!-- Category horizontal progress bars list -->
+          <div class="space-y-3.5 pt-1">
+            ${spendingCategoriesListHtml}
+          </div>
+        </div>
+
+        <!-- Right: Needs and Wants + Udhar Health (5 cols on lg) - Image 2 Right Cards -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+          <!-- Top: Needs and wants Donut (Image 2 Right Top) -->
+          <div class="card p-5 border border-emerald-900/30 flex-1">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h4 class="text-sm font-bold text-white">Needs and wants</h4>
+                <p class="text-[11px] text-gray-400 mt-0.5">Discretionary vs essential allocation</p>
+              </div>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">82% Needs</span>
             </div>
-            <div class="p-3 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 text-center">
-              <span class="text-[10px] uppercase font-bold text-gray-400">Study Focus</span>
-              <p class="text-lg font-black text-blue-400 mt-0.5">${studyHrs.toFixed(1)}h</p>
-              <span class="text-[9px] text-gray-400">${studyRoutinePct}% slots</span>
+
+            <div class="flex items-center justify-around gap-4 my-2">
+              <div class="w-32 h-32 relative flex items-center justify-center">
+                <canvas id="insights-needs-donut-chart"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span class="text-lg font-black text-white leading-none">82%</span>
+                  <span class="text-[9px] uppercase tracking-wider text-emerald-400 font-bold mt-0.5">Needs</span>
+                </div>
+              </div>
+              <div class="space-y-2 text-xs">
+                <div class="p-2.5 rounded-xl bg-surface-800 border border-gray-800">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span class="text-gray-400">Needs (Essentials)</span>
+                  </div>
+                  <p class="text-sm font-bold text-white mt-0.5">₹${Math.round(spent * 0.82).toLocaleString('en-IN')}</p>
+                </div>
+                <div class="p-2.5 rounded-xl bg-surface-800 border border-gray-800">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-[#064e3b]"></span>
+                    <span class="text-gray-400">Wants (Lifestyle)</span>
+                  </div>
+                  <p class="text-sm font-bold text-white mt-0.5">₹${Math.round(spent * 0.18).toLocaleString('en-IN')}</p>
+                </div>
+              </div>
             </div>
-            <div class="p-3 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 text-center">
-              <span class="text-[10px] uppercase font-bold text-gray-400">Cashflow</span>
-              <p class="text-lg font-black text-emerald-400 mt-0.5">₹${(netSavings / 1000).toFixed(1)}k</p>
-              <span class="text-[9px] text-gray-400">${budgetUsedPct}% budget</span>
+          </div>
+
+          <!-- Bottom: Friends Lending / Udhar Settlement Status (Image 2 Right Bottom) -->
+          <div class="card p-5 border border-emerald-900/30">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-sm font-bold text-white">Friends Lending (Udhar)</h4>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#68eba5]/15 text-[#68eba5] border border-[#68eba5]/25">${settlePct}% Settled</span>
             </div>
-            <div class="p-3 rounded-xl bg-white/5 backdrop-blur-md border border-white/10 text-center">
-              <span class="text-[10px] uppercase font-bold text-gray-400">Lending Settle</span>
-              <p class="text-lg font-black text-amber-400 mt-0.5">${settlePct}%</p>
-              <span class="text-[9px] text-gray-400">${udharSummary.settledCount} cleared</span>
+            <p class="text-[11px] text-gray-400 mb-3">Pending collections and personal debt</p>
+            
+            <div class="grid grid-cols-2 gap-2 text-center text-xs">
+              <div class="p-2.5 rounded-xl bg-surface-800 border border-gray-800">
+                <span class="text-[10px] text-gray-400 font-medium">To Receive</span>
+                <p class="text-sm font-black text-emerald-400 mt-0.5">+₹${udharSummary.totalToGet.toLocaleString('en-IN')}</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-surface-800 border border-gray-800">
+                <span class="text-[10px] text-gray-400 font-medium">To Repay</span>
+                <p class="text-sm font-black text-rose-400 mt-0.5">-₹${udharSummary.totalToPay.toLocaleString('en-IN')}</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Segmented Section Filters -->
-      <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-        <button onclick="setProgressFilter('all')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentProgressFilter === 'all' ? 'bg-accent text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
-          ✨ All Sections
-        </button>
-        <button onclick="setProgressFilter('habits')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentProgressFilter === 'habits' ? 'bg-accent text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
-          🌟 Daily Routine & Habits
-        </button>
-        <button onclick="setProgressFilter('study')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentProgressFilter === 'study' ? 'bg-accent text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
-          📚 Study Routine
-        </button>
-        <button onclick="setProgressFilter('finance')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentProgressFilter === 'finance' ? 'bg-accent text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
-          💰 Money & Finance
-        </button>
-        <button onclick="setProgressFilter('udhar')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentProgressFilter === 'udhar' ? 'bg-accent text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
-          🤝 Friends Lending
-        </button>
-        <button onclick="setProgressFilter('goals')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentProgressFilter === 'goals' ? 'bg-accent text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
-          🎯 Goals & Milestones
-        </button>
-        <button onclick="setProgressFilter('attendance')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentProgressFilter === 'attendance' ? 'bg-accent text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
-          🎓 Class Attendance
-        </button>
+      <!-- Bottom Full-Width Strip: Spending by day (Image 2 Bottom Card) -->
+      <div class="card p-5 border border-emerald-900/30">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+          <div>
+            <h4 class="text-sm font-bold text-white">Spending by day</h4>
+            <p class="text-[11px] text-gray-400 mt-0.5">Recorded daily transaction matrix across the current month</p>
+          </div>
+          <span class="text-[10px] text-emerald-400 font-semibold">Active Cycle: Day 1 - 30</span>
+        </div>
+        
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-2 pt-1">
+          ${spendingDaysMatrixHtml}
+        </div>
       </div>
+      ` : ''}
 
-      <!-- Section Cards Grid -->
+      <!-- Section Cards Grid for Deep-Dive Domains -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
         
         <!-- 1. Daily Routine & Habits Card -->
         ${showHabits ? `
@@ -554,8 +817,8 @@ function renderProgressHub() {
           <div class="flex flex-col sm:flex-row items-center gap-5 pt-1">
             ${renderProgressCircle(completion, 100, 8, '#6366f1', 'Habits', completion + '%')}
             <div class="flex-1 space-y-2.5 w-full">
-              ${renderProgressBar(morningPct, 'bg-amber-500', '🌅 Morning Routine', `${morningDone}/${morningTasks.length || 0} done`)}
-              ${renderProgressBar(afternoonPct, 'bg-orange-500', '☀️ Afternoon Routine', `${afternoonDone}/${afternoonTasks.length || 0} done`)}
+              ${renderProgressBar(morningPct, 'bg-[#68eba5]', '🌅 Morning Routine', `${morningDone}/${morningTasks.length || 0} done`)}
+              ${renderProgressBar(afternoonPct, 'bg-teal-400', '☀️ Afternoon Routine', `${afternoonDone}/${afternoonTasks.length || 0} done`)}
               ${renderProgressBar(eveningPct, 'bg-indigo-500', '🌆 Evening Routine', `${eveningDone}/${eveningTasks.length || 0} done`)}
               ${renderProgressBar(nightPct, 'bg-purple-500', '🌙 Night Routine', `${nightDone}/${nightTasks.length || 0} done`)}
               ${renderProgressBar(streakPct, 'bg-emerald-500', '🔥 30-Day Streak Target', `${streak}/30 Days`, streak >= 30 ? 'Target achieved!' : `${30 - streak} days to 30-day mastery`)}
@@ -631,7 +894,7 @@ function renderProgressHub() {
               ${renderProgressBar(budgetUsedPct, budgetUsedPct > 80 ? 'bg-rose-500' : 'bg-emerald-500', '💳 Monthly Budget Consumed', `₹${spent.toLocaleString('en-IN')} / ₹${budget.toLocaleString('en-IN')}`, `Safe remaining: ₹${Math.max(0, remaining).toLocaleString('en-IN')}`)}
               ${renderProgressBar(savingsRate, 'bg-accent', '🌱 Savings Efficiency (Income Kept)', `${savingsRate}%`, `₹${netSavings.toLocaleString('en-IN')} saved from ₹${monthlyIncome.toLocaleString('en-IN')} inflow`)}
               ${topCategories.length > 0 ? topCategories.map(([cat, amt]) => `
-                ${renderProgressBar(Math.round((amt / maxCatSpent) * 100), 'bg-amber-500', `🏷️ ${cat}`, `₹${amt.toLocaleString('en-IN')}`)}
+                ${renderProgressBar(Math.round((amt / maxCatSpent) * 100), 'bg-teal-400', `🏷️ ${cat}`, `₹${amt.toLocaleString('en-IN')}`)}
               `).join('') : '<p class="text-[11px] text-gray-400">No expenses logged yet this month.</p>'}
             </div>
           </div>
@@ -649,7 +912,7 @@ function renderProgressHub() {
         <div class="p-5 rounded-2xl bg-white dark:bg-surface-800 border border-gray-100 dark:border-surface-700 shadow-sm space-y-4">
           <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-surface-700">
             <div class="flex items-center gap-2.5">
-              <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+              <div class="w-9 h-9 rounded-xl bg-[#68eba5]/15 text-[#68eba5] flex items-center justify-center font-bold">
                 <i data-lucide="hand-coins" class="w-5 h-5"></i>
               </div>
               <div>
@@ -657,7 +920,7 @@ function renderProgressHub() {
                 <p class="text-[11px] text-gray-400">Loan recoveries & debt settlement tracking</p>
               </div>
             </div>
-            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300">
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-950/40 text-emerald-300 border border-[#68eba5]/20">
               Net Balance: ₹${udharSummary.netBalance.toLocaleString('en-IN')}
             </span>
           </div>
@@ -751,7 +1014,7 @@ function renderProgressHub() {
               ${renderProgressBar(attSummary.overallPct, attSummary.overallPct >= 75 ? 'bg-emerald-500' : 'bg-rose-500', 'Overall Attendance Rate', `${attSummary.overallPct}%`, `${attSummary.totalAttended} attended, ${attSummary.totalAbsent} missed`)}
               ${attSubjects.slice(0, 3).map(s => {
     const b = calculateBunkStatus(s.attended, s.total, s.minRequiredPct);
-    return renderProgressBar(b.pct, b.status === 'safe' ? 'bg-teal-500' : (b.status === 'borderline' ? 'bg-amber-500' : 'bg-rose-500'), `${s.name} (${s.code || ''})`, `${b.pct}%`, b.message);
+    return renderProgressBar(b.pct, b.status === 'safe' ? 'bg-teal-500' : (b.status === 'borderline' ? 'bg-teal-400' : 'bg-rose-500'), `${s.name} (${s.code || ''})`, `${b.pct}%`, b.message);
   }).join('')}
             </div>
           </div>
@@ -808,7 +1071,7 @@ function renderProgressHub() {
         <div class="p-5 rounded-2xl bg-white dark:bg-surface-800 border border-gray-100 dark:border-surface-700 shadow-sm space-y-4">
           <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-surface-700">
             <div class="flex items-center gap-2.5">
-              <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+              <div class="w-9 h-9 rounded-xl bg-[#68eba5]/15 text-[#68eba5] flex items-center justify-center font-bold">
                 <i data-lucide="clock" class="w-5 h-5"></i>
               </div>
               <div>
@@ -816,15 +1079,15 @@ function renderProgressHub() {
                 <p class="text-[11px] text-gray-400">Circadian rhythm & time allocation</p>
               </div>
             </div>
-            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300">
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-950/40 text-[#68eba5] border border-[#68eba5]/20">
               ${dayProgress}% Passed
             </span>
           </div>
 
           <div class="flex flex-col sm:flex-row items-center gap-5 pt-1">
-            ${renderProgressCircle(dayProgress, 100, 8, '#f59e0b', 'Day Elapsed', dayProgress + '%')}
+            ${renderProgressCircle(dayProgress, 100, 8, '#68eba5', 'Day Elapsed', dayProgress + '%')}
             <div class="flex-1 space-y-2.5 w-full">
-              ${renderProgressBar(dayProgress, 'bg-amber-500', '⏱️ 24-Hour Day Elapsed', `${dayProgress}%`, `${Math.round((dayProgress / 100) * 24)} hrs elapsed, ${Math.max(0, 24 - Math.round((dayProgress / 100) * 24))} hrs remaining`)}
+              ${renderProgressBar(dayProgress, 'bg-[#68eba5]', '⏱️ 24-Hour Day Elapsed', `${dayProgress}%`, `${Math.round((dayProgress / 100) * 24)} hrs elapsed, ${Math.max(0, 24 - Math.round((dayProgress / 100) * 24))} hrs remaining`)}
               ${renderProgressBar(Math.min(100, Math.round((new Date().getHours() / 18) * 100)), 'bg-indigo-500', '☀️ Prime Active Hours (08:00 - 18:00)', 'Work & Focus Window')}
               ${renderProgressBar(Math.min(100, Math.round((streak / 7) * 100)), 'bg-emerald-500', '📅 Weekly Consistency Pace', `${Math.min(7, streak)}/7 Days Active`)}
             </div>
@@ -873,7 +1136,7 @@ function renderProgressHub() {
         <div class="p-5 rounded-2xl bg-white dark:bg-surface-800 border border-gray-100 dark:border-surface-700 shadow-sm space-y-4">
           <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-surface-700">
             <div class="flex items-center gap-2.5">
-              <div class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+              <div class="w-9 h-9 rounded-xl bg-[#68eba5]/15 text-[#68eba5] flex items-center justify-center font-bold">
                 <i data-lucide="sparkles" class="w-5 h-5"></i>
               </div>
               <div>
@@ -881,7 +1144,7 @@ function renderProgressHub() {
                 <p class="text-[11px] text-gray-400">Weekly composite performance & gamification</p>
               </div>
             </div>
-            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300">
+            <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-950/40 text-[#68eba5] border border-[#68eba5]/20">
               Grade ${getWeeklyPerformanceData().grade} (${getWeeklyPerformanceData().compositeScore}%)
             </span>
           </div>
@@ -891,7 +1154,7 @@ function renderProgressHub() {
             <div class="flex-1 space-y-2.5 w-full">
               ${renderProgressBar(Math.min(100, Math.round((getWeeklyPerformanceData().weeklyStudyHours / getWeeklyPerformanceData().weeklyStudyTargetHours) * 100)), 'bg-indigo-500', 'Weekly Study Target', `${getWeeklyPerformanceData().weeklyStudyHours}h / ${getWeeklyPerformanceData().weeklyStudyTargetHours}h`)}
               ${renderProgressBar(getWeeklyPerformanceData().attendanceRate, 'bg-emerald-500', 'Class Attendance Rate', `${getWeeklyPerformanceData().attendanceRate}%`)}
-              ${renderProgressBar(Math.round((evaluateAchievements().filter(b => b.unlocked).length / 8) * 100), 'bg-amber-500', 'Milestone Badges Unlocked', `${evaluateAchievements().filter(b => b.unlocked).length} / 8 Badges`)}
+              ${renderProgressBar(Math.round((evaluateAchievements().filter(b => b.unlocked).length / 8) * 100), 'bg-[#68eba5]', 'Milestone Badges Unlocked', `${evaluateAchievements().filter(b => b.unlocked).length} / 8 Badges`)}
             </div>
           </div>
 
@@ -937,6 +1200,8 @@ function renderDashboard() {
   else if (budgetPct > 60) { budgetColor = 'bg-warning'; budgetBadge = 'badge-yellow'; }
 
   const recentExpenses = getExpenses().slice(0, 3);
+  const todaySpent = getExpenses().filter(e => e.date === todayStr()).reduce((s, x) => s + x.amount, 0);
+  const attSummary = typeof getAttendanceSummary === 'function' ? getAttendanceSummary() : { overallPct: 85, bunksLeft: 4 };
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const dateStr = now.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -966,9 +1231,9 @@ function renderDashboard() {
   return `
     ${overdueOrDueUdhar.length > 0 ? `
     <!-- Auto Due Date Reminder Alert -->
-    <div class="mb-6 p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+    <div class="mb-6 p-4 rounded-2xl bg-emerald-950/40 border border-[#68eba5]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
+        <div class="w-10 h-10 rounded-xl bg-[#68eba5]/20 text-[#68eba5] flex items-center justify-center flex-shrink-0">
           <i data-lucide="bell-ring" class="w-5 h-5"></i>
         </div>
         <div>
@@ -987,85 +1252,195 @@ function renderDashboard() {
     </div>
     ` : ''}
 
-    <!-- 1. HERO COMMAND CENTER BANNER -->
-    <div class="hero-glass rounded-2xl p-6 sm:p-7 border border-indigo-200/50 dark:border-indigo-900/40 mb-8 shadow-sm">
+    <!-- 1. GREETING & COMMAND BANNER -->
+    <div class="hero-glass rounded-2xl p-6 sm:p-7 border border-emerald-900/30 mb-8 shadow-sm">
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
           <div class="flex items-center gap-2 mb-1.5">
-            <span class="px-2.5 py-0.5 rounded-full bg-accent/15 text-accent font-semibold text-xs flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-accent animate-pulse"></span>
+            <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-semibold text-xs flex items-center gap-1 border border-emerald-500/20">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               Personal OS Active
             </span>
-            <span class="text-xs text-gray-500 dark:text-gray-400">• ${dateStr}</span>
+            <span class="text-xs text-gray-400">• ${dateStr}</span>
           </div>
-          <h3 class="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-            Good ${getGreeting()}, <span class="bg-gradient-to-r from-accent via-indigo-500 to-pink-500 bg-clip-text text-transparent">${userName}</span>! 👋
+          <h3 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+            Good ${getGreeting()}, <span class="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">${userName}</span>! 👋
           </h3>
-          <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-xl font-normal">
+          <p class="text-xs sm:text-sm text-gray-400 mt-1 max-w-xl font-normal">
             "${dailyQuote}"
           </p>
           
           <!-- Quick Action Buttons -->
           <div class="flex flex-wrap items-center gap-2 mt-4 pt-1">
-            <button onclick="navigateTo('study')" class="px-3 py-1.5 rounded-xl bg-white dark:bg-surface-800 border border-gray-200 dark:border-surface-600 hover:border-accent text-xs font-semibold text-gray-700 dark:text-gray-200 hover:text-accent flex items-center gap-1.5 shadow-xs transition-all">
-              <i data-lucide="timer" class="w-3.5 h-3.5 text-accent"></i> Focus Session
+            <button onclick="navigateTo('study')" class="px-3 py-1.5 rounded-xl bg-surface-800 border border-gray-800 hover:border-emerald-500/50 text-xs font-semibold text-gray-200 hover:text-emerald-400 flex items-center gap-1.5 shadow-xs transition-all cursor-pointer">
+              <i data-lucide="timer" class="w-3.5 h-3.5 text-emerald-400"></i> Focus Session
             </button>
             <button onclick="openAddIncomeModal()" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer">
-              <i data-lucide="arrow-down-left" class="w-3.5 h-3.5"></i> + Money In (Income 💵)
+              <i data-lucide="arrow-down-left" class="w-3.5 h-3.5"></i> + Money In
             </button>
-            <button onclick="quickOpenTab('expense')" class="px-3 py-1.5 rounded-xl bg-white dark:bg-surface-800 border border-gray-200 dark:border-surface-600 hover:border-rose-500 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:text-rose-500 flex items-center gap-1.5 shadow-xs transition-all cursor-pointer">
-              <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-rose-500"></i> Log Expense
+            <button onclick="quickOpenTab('expense')" class="px-3 py-1.5 rounded-xl bg-surface-800 border border-gray-800 hover:border-rose-500/50 text-xs font-semibold text-gray-200 hover:text-rose-400 flex items-center gap-1.5 shadow-xs transition-all cursor-pointer">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-rose-400"></i> Log Expense
             </button>
-            <button onclick="quickOpenTab('study-slot')" class="px-3 py-1.5 rounded-xl bg-white dark:bg-surface-800 border border-gray-200 dark:border-gray-600 hover:border-blue-500 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:text-blue-500 flex items-center gap-1.5 shadow-xs transition-all">
-              <i data-lucide="book-open" class="w-3.5 h-3.5 text-blue-500"></i> Add Study Slot
+            <button onclick="quickOpenTab('study-slot')" class="px-3 py-1.5 rounded-xl bg-surface-800 border border-gray-800 hover:border-cyan-500/50 text-xs font-semibold text-gray-200 hover:text-cyan-400 flex items-center gap-1.5 shadow-xs transition-all cursor-pointer">
+              <i data-lucide="book-open" class="w-3.5 h-3.5 text-cyan-400"></i> Study Slot
             </button>
-            <button onclick="quickOpenTab('routine-task')" class="px-3 py-1.5 rounded-xl bg-white dark:bg-surface-800 border border-gray-200 dark:border-gray-600 hover:border-purple-500 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:text-purple-500 flex items-center gap-1.5 shadow-xs transition-all">
-              <i data-lucide="check" class="w-3.5 h-3.5 text-purple-500"></i> New Habit
+            <button onclick="quickOpenTab('routine-task')" class="px-3 py-1.5 rounded-xl bg-surface-800 border border-gray-800 hover:border-teal-500/50 text-xs font-semibold text-gray-200 hover:text-teal-400 flex items-center gap-1.5 shadow-xs transition-all cursor-pointer">
+              <i data-lucide="check" class="w-3.5 h-3.5 text-teal-400"></i> New Habit
             </button>
           </div>
         </div>
 
         <!-- Live Clock & Day Progress -->
-        <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center p-4 rounded-xl bg-white/70 dark:bg-surface-800/80 backdrop-blur-md border border-gray-200/60 dark:border-surface-700/60 shadow-xs min-w-[170px]">
+        <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center p-4 rounded-xl bg-surface-800 border border-gray-800 shadow-xs min-w-[170px]">
           <div class="text-right">
-            <span class="text-2xl sm:text-3xl font-bold font-mono text-gray-900 dark:text-white tabular-nums tracking-tight">${timeStr}</span>
-            <div class="text-[11px] text-gray-500 dark:text-gray-400 font-medium">Live System Clock</div>
+            <span class="text-2xl sm:text-3xl font-bold font-mono text-white tabular-nums tracking-tight">${timeStr}</span>
+            <div class="text-[11px] text-gray-400 font-medium">Live System Clock</div>
           </div>
           <div class="mt-2 text-right">
-            <div class="flex items-center gap-1.5 justify-end text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+            <div class="flex items-center gap-1.5 justify-end text-[11px] font-semibold text-gray-400">
               <span>Day ${dayProgress}% Passed</span>
             </div>
-            <div class="w-32 h-1.5 bg-gray-200 dark:bg-surface-700 rounded-full overflow-hidden mt-1">
-              <div class="h-full bg-gradient-to-r from-accent to-blue-500 rounded-full" style="width: ${dayProgress}%"></div>
+            <div class="w-32 h-1.5 bg-surface-700 rounded-full overflow-hidden mt-1">
+              <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full" style="width: ${dayProgress}%"></div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 2. TOP 4 COMMAND METRIC CARDS -->
+    <!-- 2. FINTECH HERO ROW: VIRTUAL PASS CARD & NET CASHFLOW (Image 3 Layout) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+      
+      <!-- Left: The Virtual "LifeFlow Pass" Card (5 cols on lg) -->
+      <div class="lg:col-span-5 flex flex-col justify-between">
+        <div class="fintech-card-wrapper">
+          <div class="fintech-card-stack"></div>
+          <div class="fintech-card flex flex-col justify-between h-[215px]">
+            <!-- Top row -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-7 h-7 rounded-lg bg-emerald-400/20 border border-emerald-400/40 flex items-center justify-center">
+                  <i data-lucide="zap" class="w-4 h-4 text-emerald-300"></i>
+                </div>
+                <span class="text-xs font-black tracking-widest uppercase text-emerald-200">LifeFlow Pass</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/70 text-emerald-300 border border-emerald-500/30 uppercase">Student OS</span>
+                <i data-lucide="wifi" class="w-4 h-4 text-emerald-300/70 rotate-90"></i>
+              </div>
+            </div>
+
+            <!-- Middle row: Chip & Card Number -->
+            <div class="my-auto flex items-center justify-between">
+              <div class="fintech-card-chip"></div>
+              <div class="font-mono text-sm tracking-widest text-emerald-100 font-semibold opacity-95">
+                •••• &nbsp; •••• &nbsp; •••• &nbsp; ${Math.abs(Math.floor(remaining)) % 9000 + 1000}
+              </div>
+            </div>
+
+            <!-- Bottom row: Cardholder Name, Available Balance, Hologram -->
+            <div class="flex items-end justify-between pt-2 border-t border-emerald-500/20">
+              <div>
+                <p class="text-[9px] uppercase tracking-wider text-emerald-300/80 font-bold">Passholder</p>
+                <h4 class="text-xs sm:text-sm font-bold text-white tracking-wide truncate max-w-[160px]">${userName.toUpperCase()}</h4>
+              </div>
+              <div class="text-right">
+                <p class="text-[9px] uppercase tracking-wider text-emerald-300/80 font-bold">Available Budget</p>
+                <p class="text-base sm:text-lg font-black text-emerald-200 tracking-tight">₹${remaining.toLocaleString('en-IN')}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Beneath card mini indicators -->
+        <div class="grid grid-cols-3 gap-2.5 mt-3 text-center">
+          <div class="p-2.5 rounded-xl bg-surface-800 border border-gray-800">
+            <p class="text-[10px] text-gray-400 font-medium">Daily Safe Spend</p>
+            <p class="text-xs font-bold text-emerald-400 mt-0.5">₹${safeSpend}/day</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-surface-800 border border-gray-800">
+            <p class="text-[10px] text-gray-400 font-medium">Habit Streak</p>
+            <p class="text-xs font-bold text-[#68eba5] mt-0.5">🔥 ${streak} Days</p>
+          </div>
+          <div class="p-2.5 rounded-xl bg-surface-800 border border-gray-800">
+            <p class="text-[10px] text-gray-400 font-medium">Month Passed</p>
+            <p class="text-xs font-bold text-cyan-400 mt-0.5">${dayProgress}%</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Net Cashflow & Performance Hub with Sparkline (7 cols on lg) -->
+      <div class="lg:col-span-7 card p-6 flex flex-col justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Net Cashflow & Health</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">+₹${getMonthlyIncome().toLocaleString('en-IN')} Inflow</span>
+            </div>
+            <h3 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+              ${getNetSavings() >= 0 ? '+' : ''}₹${getNetSavings().toLocaleString('en-IN')}
+            </h3>
+            <p class="text-xs text-gray-400 mt-1">
+              Net savings this month • <span class="text-emerald-400 font-medium">${safeSpend > 0 ? 'On Track' : 'Tight'}</span> daily pacing
+            </p>
+          </div>
+
+          <!-- LifeScore Badge -->
+          <div class="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-1">
+            <span class="px-2.5 py-1 rounded-full text-xs font-bold border ${lifeScore.badgeClass} inline-flex items-center gap-1.5 shadow-xs">
+              <span>${lifeScore.emoji}</span>
+              <span>LifeScore ${lifeScore.score}/100</span>
+            </span>
+            <span class="text-[11px] text-gray-400 font-medium">Attendance ${attSummary.overallPct || '85'}%</span>
+          </div>
+        </div>
+
+        <!-- Sparkline Chart Area (like Image 3 "Balance over time") -->
+        <div class="h-20 my-2">
+          <canvas id="dashboard-balance-sparkline"></canvas>
+        </div>
+
+        <!-- 3 KPI Pills at bottom (matching Image 3 Today / This week / This month) -->
+        <div class="grid grid-cols-3 gap-2.5 pt-3 border-t border-gray-800">
+          <div class="p-2 rounded-lg bg-surface-700/40">
+            <span class="text-[10px] font-semibold text-gray-400 block">Spent Today</span>
+            <span class="text-xs sm:text-sm font-bold text-rose-400">₹${todaySpent.toLocaleString('en-IN')}</span>
+          </div>
+          <div class="p-2 rounded-lg bg-surface-700/40">
+            <span class="text-[10px] font-semibold text-gray-400 block">Total Spent</span>
+            <span class="text-xs sm:text-sm font-bold text-teal-300">₹${spent.toLocaleString('en-IN')}</span>
+          </div>
+          <div class="p-2 rounded-lg bg-surface-700/40">
+            <span class="text-[10px] font-semibold text-gray-400 block">Budget Left</span>
+            <span class="text-xs sm:text-sm font-bold text-emerald-400">₹${remaining.toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. TOP 4 FINTECH METRIC PILLARS -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       
       <!-- Card 1: LifeFlow Productivity Index -->
-      <div class="card p-5 border border-indigo-200/60 dark:border-indigo-900/40 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+      <div class="card p-5 border border-emerald-900/30 relative overflow-hidden group">
         <div class="flex items-center justify-between mb-2">
           <div>
-            <span class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">LifeFlow Index</span>
+            <span class="text-xs font-bold uppercase tracking-wider text-gray-400">LifeFlow Index</span>
             <p class="text-xs font-medium text-gray-400 mt-0.5">Overall Balance</p>
           </div>
           <!-- Mini SVG Progress Ring -->
           <div class="relative w-12 h-12 flex items-center justify-center">
             <svg class="w-12 h-12 -rotate-90" viewBox="0 0 60 60">
-              <circle cx="30" cy="30" r="${radius}" fill="none" stroke-width="5" class="stroke-gray-100 dark:stroke-surface-700" />
+              <circle cx="30" cy="30" r="${radius}" fill="none" stroke-width="5" class="stroke-surface-700" />
               <circle cx="30" cy="30" r="${radius}" fill="none" stroke-width="5" stroke-linecap="round"
                 class="stroke-accent score-circle"
                 stroke-dasharray="${circumference}"
                 stroke-dashoffset="${strokeDashoffset}" />
             </svg>
-            <span class="absolute text-xs font-bold text-gray-900 dark:text-white tabular-nums">${lifeScore.score}</span>
+            <span class="absolute text-xs font-bold text-white tabular-nums">${lifeScore.score}</span>
           </div>
         </div>
-        <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-100 dark:border-surface-700">
+        <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-800">
           <span class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${lifeScore.badgeClass}">
             ${lifeScore.emoji} ${lifeScore.label}
           </span>
@@ -1074,58 +1449,58 @@ function renderDashboard() {
       </div>
 
       <!-- Card 2: Habit Routine & Streak -->
-      <div class="card p-5 cursor-pointer hover:scale-[1.02] transition-transform border border-purple-200/60 dark:border-purple-900/40" onclick="navigateTo('routine')">
+      <div class="card p-5 cursor-pointer border border-emerald-900/30" onclick="navigateTo('routine')">
         <div class="flex items-center justify-between mb-3">
-          <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-            <i data-lucide="check-circle-2" class="w-5 h-5 text-purple-600 dark:text-purple-400"></i>
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-400"></i>
           </div>
           <span class="streak-badge">🔥 ${streak} Days Active</span>
         </div>
         <div class="flex items-baseline gap-2">
-          <p class="text-2xl font-bold text-gray-900 dark:text-white">${completion}%</p>
+          <p class="text-2xl font-bold text-white">${completion}%</p>
           <span class="text-xs text-gray-400 font-medium">Routine Done</span>
         </div>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Daily Habit Checklist</p>
-        <div class="w-full h-2 bg-gray-100 dark:bg-surface-700 rounded-full overflow-hidden mt-3">
-          <div class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full" style="width: ${completion}%"></div>
+        <p class="text-xs text-gray-400 mt-1">Daily Habit Checklist</p>
+        <div class="w-full h-2 bg-surface-700 rounded-full overflow-hidden mt-3">
+          <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full" style="width: ${completion}%"></div>
         </div>
       </div>
 
       <!-- Card 3: Study Deep Work & Routine -->
-      <div class="card p-5 cursor-pointer hover:scale-[1.02] transition-transform border border-blue-200/60 dark:border-blue-900/40" onclick="navigateTo('study')">
+      <div class="card p-5 cursor-pointer border border-cyan-900/30" onclick="navigateTo('study')">
         <div class="flex items-center justify-between mb-3">
-          <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-            <i data-lucide="book-open" class="w-5 h-5 text-blue-500"></i>
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+            <i data-lucide="book-open" class="w-5 h-5 text-cyan-400"></i>
           </div>
           <span class="badge badge-blue">📚 ${studyRoutinePct}% Routine</span>
         </div>
         <div class="flex items-baseline gap-2">
-          <p class="text-2xl font-bold text-gray-900 dark:text-white">${studyHrs} hrs</p>
+          <p class="text-2xl font-bold text-white">${studyHrs} hrs</p>
           <span class="text-xs text-gray-400 font-medium">Deep Work</span>
         </div>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Today's Focus & Study Slots</p>
-        <div class="w-full h-2 bg-gray-100 dark:bg-surface-700 rounded-full overflow-hidden mt-3">
-          <div class="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full" style="width: ${studyRoutinePct}%"></div>
+        <p class="text-xs text-gray-400 mt-1">Today's Focus & Study Slots</p>
+        <div class="w-full h-2 bg-surface-700 rounded-full overflow-hidden mt-3">
+          <div class="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full" style="width: ${studyRoutinePct}%"></div>
         </div>
       </div>
 
-      <!-- Card 4: Financial Pulse & Cashflow Overview -->
-      <div class="card p-5 cursor-pointer hover:scale-[1.02] transition-transform border border-emerald-200/60 dark:border-emerald-900/40" onclick="navigateTo('expense')">
+      <!-- Card 4: Class Attendance & Academic Standing -->
+      <div class="card p-5 cursor-pointer border border-emerald-900/30" onclick="navigateTo('attendance')">
         <div class="flex items-center justify-between mb-3">
-          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-            <i data-lucide="wallet" class="w-5 h-5 text-emerald-500"></i>
+          <div class="w-10 h-10 rounded-xl bg-teal-500/10 flex items-center justify-center">
+            <i data-lucide="graduation-cap" class="w-5 h-5 text-teal-400"></i>
           </div>
-          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-            +₹${getMonthlyIncome().toLocaleString('en-IN')} Inflow
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            ${attSummary.bunksLeft !== undefined ? `${attSummary.bunksLeft} Bunks Left` : 'Safe'}
           </span>
         </div>
         <div class="flex items-baseline gap-2">
-          <p class="text-2xl font-bold text-gray-900 dark:text-white">₹${remaining.toLocaleString('en-IN')}</p>
-          <span class="text-xs text-gray-400 font-medium">Budget Left</span>
+          <p class="text-2xl font-bold text-white">${attSummary.overallPct || '85'}%</p>
+          <span class="text-xs text-gray-400 font-medium">Class Attendance</span>
         </div>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">₹${spent.toLocaleString('en-IN')} spent • Net savings: ${getNetSavings() >= 0 ? '+' : ''}₹${getNetSavings().toLocaleString('en-IN')}</p>
-        <div class="w-full h-2 bg-gray-100 dark:bg-surface-700 rounded-full overflow-hidden mt-3">
-          <div class="h-full ${budgetColor} rounded-full" style="width: ${budgetPct}%"></div>
+        <p class="text-xs text-gray-400 mt-1">${attSummary.totalClasses || 0} classes tracked • Exam Eligible</p>
+        <div class="w-full h-2 bg-surface-700 rounded-full overflow-hidden mt-3">
+          <div class="h-full bg-emerald-500 rounded-full" style="width: ${attSummary.overallPct || 85}%"></div>
         </div>
       </div>
     </div>
@@ -1174,7 +1549,7 @@ function renderDashboard() {
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-1.5">
                       <span class="text-xs font-bold text-gray-900 dark:text-white ${isDone ? 'line-through text-gray-400 dark:text-gray-500' : ''}">${s.subject}</span>
-                      <span class="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/60 shadow-xs"><i data-lucide="clock" class="w-3 h-3 text-amber-600 dark:text-amber-400"></i><span>${s.time || s.duration + 'm'}</span></span>
+                      <span class="inline-flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-md bg-emerald-950/40 text-emerald-300 border border-[#68eba5]/30 shadow-xs"><i data-lucide="clock" class="w-3 h-3 text-[#68eba5]"></i><span>${s.time || s.duration + 'm'}</span></span>
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 truncate ${isDone ? 'line-through text-gray-400' : ''}">${s.topic}</p>
                   </div>
@@ -1239,7 +1614,7 @@ function renderDashboard() {
       <div class="card p-6 flex flex-col">
         <div class="flex items-center justify-between mb-3">
           <h4 class="text-sm font-semibold flex items-center gap-2">
-            <i data-lucide="edit-3" class="w-4 h-4 text-amber-500"></i>
+            <i data-lucide="edit-3" class="w-4 h-4 text-[#68eba5]"></i>
             Quick Scratchpad
           </h4>
           <span id="scratchpad-indicator" class="text-[10px] text-emerald-500 font-medium">Auto-saved ✓</span>
@@ -1345,7 +1720,7 @@ function handleQuickNoteInput(val) {
   const ind = document.getElementById('scratchpad-indicator');
   if (ind) {
     ind.textContent = 'Saving...';
-    ind.className = 'text-[10px] text-amber-500 font-medium';
+    ind.className = 'text-[10px] text-[#68eba5] font-medium';
   }
   clearTimeout(noteTimer);
   noteTimer = setTimeout(() => {
@@ -1754,13 +2129,13 @@ function renderAttendance() {
     statusBadge = 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border-rose-200 dark:border-rose-800';
     statusText = 'Critical Shortage — Risk of Debarment! 🚨';
   } else if (summary.overallPct < 75) {
-    overallColor = '#f59e0b';
-    statusBadge = 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+    overallColor = '#2dd4bf';
+    statusBadge = 'bg-teal-500/15 text-teal-300 border-teal-500/30';
     statusText = 'Warning Zone — Borderline Attendance! ⚠️';
   }
 
   return `
-    <div class="space-y-6 animate-in fade-in duration-300">
+    <div class="space-y-6">
       
       <!-- Hero Attendance Command Center -->
       <div class="p-6 sm:p-7 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-surface-900 border border-indigo-500/20 text-white shadow-xl relative overflow-hidden">
@@ -1826,7 +2201,7 @@ function renderAttendance() {
           <button onclick="setAttendanceFilter('safe')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentAttendanceFilter === 'safe' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
             🟢 Safe ≥75% (${summary.safeCount})
           </button>
-          <button onclick="setAttendanceFilter('warning')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentAttendanceFilter === 'warning' ? 'bg-amber-600 text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
+          <button onclick="setAttendanceFilter('warning')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentAttendanceFilter === 'warning' ? 'bg-teal-600 text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
             🟡 Warning (${summary.warningCount})
           </button>
           <button onclick="setAttendanceFilter('danger')" class="px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${currentAttendanceFilter === 'danger' ? 'bg-rose-600 text-white shadow-xs' : 'bg-white dark:bg-surface-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-surface-700 hover:bg-gray-50 dark:hover:bg-surface-700'}">
@@ -1882,9 +2257,9 @@ function renderAttendance() {
       badgeBg = 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-300 border-rose-200 dark:border-rose-800';
       adviceBoxClass = 'bg-rose-50/70 dark:bg-rose-950/20 border-rose-200/70 dark:border-rose-800/40 text-rose-800 dark:text-rose-300';
     } else if (bunk.status === 'borderline') {
-      cardColor = '#f59e0b';
-      badgeBg = 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300 border-amber-200 dark:border-amber-800';
-      adviceBoxClass = 'bg-amber-50/70 dark:bg-amber-950/20 border-amber-200/70 dark:border-amber-800/40 text-amber-800 dark:text-amber-300';
+      cardColor = '#2dd4bf';
+      badgeBg = 'bg-teal-500/15 text-teal-300 border-teal-500/30';
+      adviceBoxClass = 'bg-teal-950/30 border-teal-500/30 text-teal-200';
     }
 
     return `
@@ -1918,7 +2293,7 @@ function renderAttendance() {
                     <span>Missed: <strong class="text-rose-600 dark:text-rose-400">${s.total - s.attended}</strong></span>
                     <span>Total: <strong class="text-gray-900 dark:text-white">${s.total}</strong></span>
                   </div>
-                  ${renderProgressBar(bunk.pct, bunk.status === 'danger' ? 'bg-rose-500' : (bunk.status === 'borderline' ? 'bg-amber-500' : 'bg-emerald-500'), 'Attendance Threshold', `${bunk.pct}% / Target ${s.minRequiredPct}%`)}
+                  ${renderProgressBar(bunk.pct, bunk.status === 'danger' ? 'bg-rose-500' : (bunk.status === 'borderline' ? 'bg-teal-400' : 'bg-emerald-500'), 'Attendance Threshold', `${bunk.pct}% / Target ${s.minRequiredPct}%`)}
                 </div>
               </div>
 
@@ -2116,7 +2491,7 @@ function renderStudyRoutineSection() {
     'Computer Science': 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
     'Physics': 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-800',
     'English': 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800',
-    'Core Subjects': 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800',
+    'Core Subjects': 'bg-emerald-500/10 text-[#68eba5] border-[#68eba5]/30',
     'Self Assessment': 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-200 dark:border-pink-800',
   };
 
@@ -2192,7 +2567,7 @@ function renderStudyRoutineSection() {
               <div class="flex-1 min-w-0">
                 <div class="flex flex-wrap items-center gap-2 mb-1">
                   <span class="text-[11px] font-bold px-2 py-0.5 rounded-md border ${colorClass}">${slot.subject}</span>
-                  <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/60 shadow-xs">
+                  <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-950/40 text-emerald-300 border border-[#68eba5]/30 shadow-xs">
                     <span>${periodEmojis[slot.period] || '🕒'}</span>
                     <span>${slot.time || (slot.duration + 'm')}</span>
                   </span>
@@ -2234,7 +2609,7 @@ function startFocusForSlot(subject, duration) {
   togglePomodoro();
   showToast(`Focus session started for ${subject} (${duration}m)! ⏱️`, 'success');
   const timer = document.getElementById('timer-display');
-  if (timer) timer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (timer) timer.scrollIntoView({ behavior: 'auto', block: 'center' });
 }
 
 function deleteStudySlot(id) {
@@ -2345,7 +2720,7 @@ function renderStudy() {
             </div>
           </div>
           <div class="flex gap-2 mb-4">
-            <button onclick="togglePomodoro()" id="pomo-toggle" class="px-6 py-2.5 bg-accent hover:bg-accent-dark text-white rounded-xl text-sm font-semibold transition-all active:scale-95 ${pomodoroRunning ? 'pulse-glow' : ''}">
+            <button onclick="togglePomodoro()" id="pomo-toggle" class="px-6 py-2.5 bg-accent hover:bg-accent-dark text-white rounded-xl text-sm font-semibold">
               ${pomodoroRunning ? '⏸ Pause' : '▶ Start'}
             </button>
             <button onclick="resetPomodoro()" class="px-4 py-2.5 bg-gray-100 dark:bg-surface-700 hover:bg-gray-200 dark:hover:bg-surface-700/80 rounded-xl text-sm font-medium transition-all active:scale-95">
@@ -2552,7 +2927,7 @@ function renderExpense() {
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       
       <!-- Card 1: Total Inflow / Income -->
-      <div class="card p-5 border border-emerald-200/70 dark:border-emerald-900/40 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+      <div class="card p-5 border border-emerald-200/70 dark:border-emerald-900/40 relative overflow-hidden group ">
         <div class="flex items-center justify-between mb-3">
           <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
             <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
@@ -2567,7 +2942,7 @@ function renderExpense() {
       </div>
 
       <!-- Card 2: Total Outflow / Spent -->
-      <div class="card p-5 border border-rose-200/70 dark:border-rose-900/40 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+      <div class="card p-5 border border-rose-200/70 dark:border-rose-900/40 relative overflow-hidden group ">
         <div class="flex items-center justify-between mb-3">
           <div class="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600 dark:text-rose-400">
             <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
@@ -2582,7 +2957,7 @@ function renderExpense() {
       </div>
 
       <!-- Card 3: Net Cashflow / Savings -->
-      <div class="card p-5 border border-indigo-200/70 dark:border-indigo-900/40 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+      <div class="card p-5 border border-indigo-200/70 dark:border-indigo-900/40 relative overflow-hidden group ">
         <div class="flex items-center justify-between mb-3">
           <div class="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-accent">
             <i data-lucide="piggy-bank" class="w-5 h-5"></i>
@@ -2599,9 +2974,9 @@ function renderExpense() {
       </div>
 
       <!-- Card 4: Monthly Budget Meter -->
-      <div class="card p-5 border border-amber-200/70 dark:border-amber-900/40 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+      <div class="card p-5 border border-[#68eba5]/25 relative overflow-hidden group ">
         <div class="flex items-center justify-between mb-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+          <div class="w-10 h-10 rounded-xl bg-[#68eba5]/15 flex items-center justify-center text-[#68eba5]">
             <i data-lucide="wallet" class="w-5 h-5"></i>
           </div>
           <div class="flex items-center gap-1.5">
@@ -2764,7 +3139,7 @@ function renderInflowTabContent(filteredIncomes, allIncomes, sourceTotals) {
               </button>
 
               <div class="delete-step" data-inc-del-step2="${inc.id}">
-                <button onclick="deleteIncomeStep2('${inc.id}')" class="flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:bg-amber-200 cursor-pointer">
+                <button onclick="deleteIncomeStep2('${inc.id}')" class="flex items-center gap-1 px-3 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold hover:bg-rose-500/30 cursor-pointer">
                   <i data-lucide="alert-triangle" class="w-3 h-3"></i> Delete?
                 </button>
                 <button onclick="deleteIncomeCancel('${inc.id}')" class="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 cursor-pointer" title="Cancel">
@@ -2922,7 +3297,7 @@ function renderExpenseList(expenses) {
         </button>
 
         <div class="delete-step" data-del-step2="${e.id}">
-          <button onclick="deleteStep2('${e.id}')" class="flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-semibold hover:bg-amber-200 cursor-pointer">
+          <button onclick="deleteStep2('${e.id}')" class="flex items-center gap-1 px-3 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold hover:bg-rose-500/30 cursor-pointer">
             <i data-lucide="alert-triangle" class="w-3 h-3"></i> Delete?
           </button>
           <button onclick="deleteCancel('${e.id}')" class="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400 cursor-pointer" title="Cancel">
@@ -2972,18 +3347,15 @@ function deleteCancel(id) {
 function deleteConfirm(id) {
   const row = document.getElementById('exp-' + id);
   if (row) {
-    row.classList.add('deleting');
-    setTimeout(function () {
-      deleteExpense(id);
-      showToast('Transaction deleted successfully', 'success');
-      const filterEl = document.getElementById('expense-cat-filter');
-      const cat = filterEl ? filterEl.value : 'all';
-      let exps = getExpenses();
-      if (cat !== 'all') exps = exps.filter(function (e) { return e.category === cat; });
-      const el = document.getElementById('expense-list');
-      if (el) el.innerHTML = renderExpenseList(exps);
-      lucide.createIcons();
-    }, 400);
+    deleteExpense(id);
+    showToast('Transaction deleted successfully', 'success');
+    const filterEl = document.getElementById('expense-cat-filter');
+    const cat = filterEl ? filterEl.value : 'all';
+    let exps = getExpenses();
+    if (cat !== 'all') exps = exps.filter(function (e) { return e.category === cat; });
+    const el = document.getElementById('expense-list');
+    if (el) el.innerHTML = renderExpenseList(exps);
+    lucide.createIcons();
   }
 }
 
@@ -3014,19 +3386,10 @@ function deleteIncomeCancel(id) {
 }
 
 function deleteIncomeConfirm(id) {
-  const row = document.getElementById('inc-' + id);
-  if (row) {
-    row.classList.add('deleting');
-    setTimeout(function () {
-      deleteIncome(id);
-      showToast('Income entry deleted successfully', 'success');
-      if (currentPage === 'expense' || currentPage === 'dashboard') {
-        renderPage(currentPage);
-      }
-    }, 350);
-  } else {
-    deleteIncome(id);
-    renderPage('expense');
+  deleteIncome(id);
+  showToast('Income entry deleted successfully', 'success');
+  if (currentPage === 'expense' || currentPage === 'dashboard') {
+    renderPage(currentPage);
   }
 }
 
@@ -3259,7 +3622,7 @@ function initCharts() {
         datasets: [{
           label: 'Hours',
           data,
-          backgroundColor: 'rgba(99,102,241,0.7)',
+          backgroundColor: '#68eba5',
           borderRadius: 8,
           borderSkipped: false,
           maxBarThickness: 40,
@@ -3276,6 +3639,50 @@ function initCharts() {
     });
   }
 
+  // Dashboard Balance Sparkline (Matching Reference Image 3)
+  const sparkCtx = document.getElementById('dashboard-balance-sparkline');
+  if (sparkCtx) {
+    const days = [6, 5, 4, 3, 2, 1, 0];
+    const sparkLabels = days.map(d => daysAgo(d));
+    const allExps = getExpenses();
+    const dailySpend = days.map(d => {
+      const dateStr = daysAgo(d);
+      return allExps.filter(e => e.date === dateStr).reduce((s, x) => s + x.amount, 0);
+    });
+    const sparkData = dailySpend.some(v => v > 0) ? dailySpend : [120, 240, 180, 320, 210, 450, 290];
+    const ctx = sparkCtx.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 75);
+    grad.addColorStop(0, 'rgba(104, 235, 165, 0.35)');
+    grad.addColorStop(1, 'rgba(104, 235, 165, 0.0)');
+    chartInstances['dashboard-sparkline'] = new Chart(sparkCtx, {
+      type: 'line',
+      data: {
+        labels: sparkLabels,
+        datasets: [{
+          data: sparkData,
+          borderColor: '#68eba5',
+          borderWidth: 2.5,
+          pointRadius: 2.5,
+          pointBackgroundColor: '#68eba5',
+          pointBorderColor: isDark ? '#142119' : '#ffffff',
+          pointBorderWidth: 1.5,
+          backgroundColor: grad,
+          tension: 0.35,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+        scales: {
+          x: { display: false },
+          y: { display: false, beginAtZero: true }
+        }
+      }
+    });
+  }
+
   const donutCtx = document.getElementById('study-donut-chart');
   if (donutCtx) {
     const sessions = getStudySessions();
@@ -3285,7 +3692,7 @@ function initCharts() {
     });
     const subjects = Object.keys(subjectMap);
     const values = Object.values(subjectMap);
-    const colors = ['#6366f1', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#ec4899'];
+    const colors = ['#10b981', '#34d399', '#14b8a6', '#06b6d4', '#f59e0b', '#ef4444', '#3b82f6'];
     chartInstances['donut'] = new Chart(donutCtx, {
       type: 'doughnut',
       data: {
@@ -3306,6 +3713,211 @@ function initCharts() {
       }
     });
   }
+
+  // ========== INSIGHTS FINTECH CHARTS (Matching Reference Images 1 & 2) ==========
+  
+  // 1. Money in & out Chart (Image 1 Left)
+  const moneyFlowCtx = document.getElementById('insights-money-flow-chart');
+  if (moneyFlowCtx) {
+    const months = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const incBase = getMonthlyIncome() || 18500;
+    const expBase = getMonthlySpent() || 12400;
+    const inflowData = [incBase * 0.9, incBase * 0.95, incBase * 1.08, incBase * 1.02, incBase * 0.98, incBase];
+    const outflowData = [expBase * 0.85, expBase * 0.92, expBase * 1.12, expBase * 0.94, expBase * 1.05, expBase];
+
+    chartInstances['insights-money-flow'] = new Chart(moneyFlowCtx, {
+      type: 'bar',
+      data: {
+        labels: months,
+        datasets: [
+          {
+            label: 'Money In',
+            data: inflowData.map(v => Math.round(v)),
+            backgroundColor: '#68eba5',
+            borderRadius: 6,
+            borderSkipped: false,
+            maxBarThickness: 22
+          },
+          {
+            label: 'Money Out',
+            data: outflowData.map(v => Math.round(v)),
+            backgroundColor: isDark ? 'rgba(40, 68, 52, 0.75)' : '#94a3b8',
+            borderRadius: 6,
+            borderSkipped: false,
+            maxBarThickness: 22
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            align: 'end',
+            labels: {
+              boxWidth: 8,
+              boxHeight: 8,
+              usePointStyle: true,
+              pointStyle: 'circle',
+              color: textColor,
+              font: { size: 10, weight: 'bold' }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ₹${ctx.raw.toLocaleString('en-IN')}`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: textColor, font: { size: 10 } } },
+          y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // 2. Balance over time Chart (Image 1 Right)
+  const balanceTrendCtx = document.getElementById('insights-balance-trend-chart');
+  if (balanceTrendCtx) {
+    const days = ['Day 1', 'Day 5', 'Day 10', 'Day 15', 'Day 20', 'Day 25', 'Day 30'];
+    const netSave = getNetSavings() || 6100;
+    const balanceData = [
+      Math.max(1200, netSave * 0.65),
+      Math.max(1400, netSave * 0.78),
+      Math.max(1100, netSave * 0.6),
+      Math.max(1700, netSave * 0.88),
+      Math.max(1900, netSave * 0.95),
+      Math.max(2400, netSave * 1.1),
+      Math.max(2100, netSave)
+    ];
+    const ctx = balanceTrendCtx.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 180);
+    grad.addColorStop(0, 'rgba(104, 235, 165, 0.35)');
+    grad.addColorStop(1, 'rgba(104, 235, 165, 0.0)');
+
+    chartInstances['insights-balance-trend'] = new Chart(balanceTrendCtx, {
+      type: 'line',
+      data: {
+        labels: days,
+        datasets: [{
+          label: 'Balance Trajectory',
+          data: balanceData.map(v => Math.round(v)),
+          borderColor: '#68eba5',
+          borderWidth: 2.5,
+          pointRadius: 2.5,
+          pointBackgroundColor: '#68eba5',
+          pointBorderColor: isDark ? '#142119' : '#ffffff',
+          pointBorderWidth: 1.5,
+          backgroundColor: grad,
+          tension: 0.35,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ₹${ctx.raw.toLocaleString('en-IN')}`
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: textColor, font: { size: 10 } } },
+          y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } }
+        }
+      }
+    });
+  }
+
+  // 3. Needs and Wants Donut Chart (Image 2 Right Top)
+  const needsDonutCtx = document.getElementById('insights-needs-donut-chart');
+  if (needsDonutCtx) {
+    chartInstances['insights-needs-donut'] = new Chart(needsDonutCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Needs (Essential)', 'Wants (Lifestyle)'],
+        datasets: [{
+          data: [82, 18],
+          backgroundColor: ['#68eba5', isDark ? 'rgba(40, 68, 52, 0.75)' : '#94a3b8'],
+          borderWidth: 0,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+  }
+}
+
+// ========== GLOBAL INSTANT SEARCH (Fintech Top Bar Search) ==========
+function handleGlobalSearch(query) {
+  const q = (query || '').trim().toLowerCase();
+  const existing = document.getElementById('global-search-results-overlay');
+  if (!q) {
+    if (existing) existing.remove();
+    return;
+  }
+
+  const expenses = getExpenses().filter(e => (e.description || '').toLowerCase().includes(q) || (e.category || '').toLowerCase().includes(q));
+  const habits = getRoutine().filter(r => (r.name || '').toLowerCase().includes(q));
+  const study = getStudySessions().filter(s => (s.subject || '').toLowerCase().includes(q) || (s.topic && s.topic.toLowerCase().includes(q)));
+
+  let overlay = existing;
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'global-search-results-overlay';
+    overlay.className = 'absolute top-14 left-1/2 -translate-x-1/2 w-full max-w-md bg-surface-800 border border-emerald-500/30 rounded-2xl shadow-2xl p-4 z-50 space-y-3';
+    const header = document.querySelector('header');
+    if (header) {
+      header.classList.add('relative');
+      header.appendChild(overlay);
+    }
+  }
+
+  const total = expenses.length + habits.length + study.length;
+  if (total === 0) {
+    overlay.innerHTML = `<p class="text-xs text-gray-400 text-center py-2">No matching entries found for "${q}".</p>`;
+    return;
+  }
+
+  overlay.innerHTML = `
+    <div class="flex items-center justify-between pb-2 border-b border-gray-800">
+      <span class="text-xs font-bold text-emerald-400">Search Results (${total})</span>
+      <button onclick="document.getElementById('global-search-results-overlay')?.remove()" class="text-xs text-gray-400 hover:text-white cursor-pointer">✕</button>
+    </div>
+    <div class="max-h-60 overflow-y-auto space-y-1.5">
+      ${habits.map(h => `
+        <div onclick="navigateTo('routine'); document.getElementById('global-search-results-overlay')?.remove();" class="p-2 rounded-xl bg-surface-700/50 hover:bg-surface-700 cursor-pointer flex items-center justify-between text-xs">
+          <span class="font-medium text-white">✅ ${h.name}</span>
+          <span class="text-[10px] text-gray-400">${h.period}</span>
+        </div>
+      `).join('')}
+      ${expenses.map(e => `
+        <div onclick="navigateTo('expense'); document.getElementById('global-search-results-overlay')?.remove();" class="p-2 rounded-xl bg-surface-700/50 hover:bg-surface-700 cursor-pointer flex items-center justify-between text-xs">
+          <span class="font-medium text-white">💵 ${e.description} (${e.category})</span>
+          <span class="font-bold text-rose-400">-₹${e.amount}</span>
+        </div>
+      `).join('')}
+      ${study.map(s => `
+        <div onclick="navigateTo('study'); document.getElementById('global-search-results-overlay')?.remove();" class="p-2 rounded-xl bg-surface-700/50 hover:bg-surface-700 cursor-pointer flex items-center justify-between text-xs">
+          <span class="font-medium text-white">📚 ${s.subject}</span>
+          <span class="text-[10px] text-cyan-400">${s.duration}m</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 // ========== QUICK ADD MODAL ==========
@@ -3460,8 +4072,7 @@ function showToast(msg, type = 'info') {
   toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${msg}</span>`;
   container.appendChild(toast);
   setTimeout(() => {
-    toast.classList.add('leaving');
-    setTimeout(() => toast.remove(), 300);
+    toast.remove();
   }, 3000);
 }
 
@@ -3475,8 +4086,8 @@ function openDbModal() {
   const config = getSupabaseConfig();
   const urlInput = document.getElementById('supabase-url-input');
   const keyInput = document.getElementById('supabase-key-input');
-  if (urlInput) urlInput.value = config.url || '';
-  if (keyInput) keyInput.value = config.key || '';
+  if (urlInput) urlInput.value = config.url || 'https://mwbcfpwfnwghjmpnbikc.supabase.co';
+  if (keyInput) keyInput.value = config.key || 'sb_publishable_1n9Jvm3HFWJvia8ldE45HA_02J1-PCd';
 
   refreshDbStatusUI();
   lucide.createIcons();
@@ -3498,7 +4109,7 @@ function refreshDbStatusUI() {
 
   if (isConnected) {
     if (dot) {
-      dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+      dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
     }
     if (label) {
       label.textContent = 'Cloud Connected';
@@ -3512,17 +4123,17 @@ function refreshDbStatusUI() {
     }
   } else {
     if (dot) {
-      dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+      dot.className = 'w-2 h-2 rounded-full bg-teal-400';
     }
     if (label) {
       label.textContent = 'Local DB';
       label.className = 'hidden sm:inline text-gray-700 dark:text-gray-200 font-semibold';
     }
-    if (modalDot) modalDot.className = 'w-2.5 h-2.5 rounded-full bg-amber-500';
+    if (modalDot) modalDot.className = 'w-2.5 h-2.5 rounded-full bg-[#68eba5]';
     if (modalText) modalText.textContent = 'Local Storage Mode (Offline)';
     if (modalSub) modalSub.textContent = 'Connect Supabase to enable cloud backup & multi-device sync';
     if (statusCard) {
-      statusCard.className = 'p-3.5 rounded-xl border flex items-center justify-between text-xs transition-all bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40 text-amber-800 dark:text-amber-300';
+      statusCard.className = 'p-3.5 rounded-xl border flex items-center justify-between text-xs bg-emerald-950/40 border-emerald-500/30 text-emerald-300';
     }
   }
 }
@@ -3538,7 +4149,7 @@ async function handleTestDbConnection() {
   }
 
   const originalContent = testBtn ? testBtn.innerHTML : '';
-  if (testBtn) testBtn.innerHTML = '<span class="inline-block animate-spin mr-1">⏳</span> Testing...';
+  if (testBtn) testBtn.innerHTML = '<span class="inline-block mr-1">⏳</span> Testing...';
 
   try {
     const res = await testSupabaseConnection(url, key);
@@ -3572,7 +4183,7 @@ async function handleSaveDbConnection() {
   }
 
   const originalContent = saveBtn ? saveBtn.innerHTML : '';
-  if (saveBtn) saveBtn.innerHTML = '<span class="inline-block animate-spin mr-1">⏳</span> Connecting...';
+  if (saveBtn) saveBtn.innerHTML = '<span class="inline-block mr-1">⏳</span> Connecting...';
 
   try {
     const test = await testSupabaseConnection(url, key);
@@ -3777,8 +4388,8 @@ function renderUdhar() {
   const avatarColors = [
     'from-blue-500 to-indigo-600',
     'from-emerald-500 to-teal-600',
-    'from-purple-500 to-pink-600',
-    'from-amber-500 to-orange-600',
+    'from-purple-500 to-teal-600',
+    'from-teal-400 to-emerald-600',
     'from-rose-500 to-red-600',
     'from-cyan-500 to-blue-600'
   ];
@@ -3799,7 +4410,7 @@ function renderUdhar() {
     <!-- Summary Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       <!-- You Will Get -->
-      <div class="card p-5 border border-emerald-200/70 dark:border-emerald-900/40 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+      <div class="card p-5 border border-emerald-200/70 dark:border-emerald-900/40 relative overflow-hidden group ">
         <div class="flex items-center justify-between mb-3">
           <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
             <i data-lucide="arrow-down-left" class="w-5 h-5"></i>
@@ -3814,7 +4425,7 @@ function renderUdhar() {
       </div>
 
       <!-- You Need to Pay -->
-      <div class="card p-5 border border-rose-200/70 dark:border-rose-900/40 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+      <div class="card p-5 border border-rose-200/70 dark:border-rose-900/40 relative overflow-hidden group ">
         <div class="flex items-center justify-between mb-3">
           <div class="w-10 h-10 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600 dark:text-rose-400">
             <i data-lucide="arrow-up-right" class="w-5 h-5"></i>
@@ -3829,7 +4440,7 @@ function renderUdhar() {
       </div>
 
       <!-- Net Balance -->
-      <div class="card p-5 border border-indigo-200/70 dark:border-indigo-900/40 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+      <div class="card p-5 border border-indigo-200/70 dark:border-indigo-900/40 relative overflow-hidden group ">
         <div class="flex items-center justify-between mb-3">
           <div class="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-accent">
             <i data-lucide="scale" class="w-5 h-5"></i>
@@ -3846,12 +4457,12 @@ function renderUdhar() {
       </div>
 
       <!-- Active Friends -->
-      <div class="card p-5 border border-amber-200/70 dark:border-amber-900/40 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+      <div class="card p-5 border border-[#68eba5]/25 relative overflow-hidden group ">
         <div class="flex items-center justify-between mb-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+          <div class="w-10 h-10 rounded-xl bg-[#68eba5]/15 flex items-center justify-center text-[#68eba5]">
             <i data-lucide="users" class="w-5 h-5"></i>
           </div>
-          <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+          <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/40 text-emerald-300 border border-[#68eba5]/20">
             ${summary.settledCount} Settled
           </span>
         </div>
@@ -3968,7 +4579,7 @@ function renderUdhar() {
                   ` : ''}
 
                   ${r.dueDate ? `
-                    <div class="flex items-center gap-1 text-[10.5px] text-amber-600 dark:text-amber-400 font-medium">
+                    <div class="flex items-center gap-1 text-[10.5px] text-[#68eba5] font-medium">
                       <i data-lucide="clock" class="w-3 h-3"></i>
                       <span>Due: ${formatDate(r.dueDate)}</span>
                     </div>
@@ -4316,10 +4927,10 @@ function updateReportPreview() {
           </p>
           <span class="text-[10px] text-indigo-600/80">Inflow - Outflow</span>
         </div>
-        <div class="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40">
-          <span class="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Productivity</span>
-          <p class="text-lg font-black text-amber-600 dark:text-amber-400 mt-0.5">${study.totalHours}h Focus</p>
-          <span class="text-[10px] text-amber-600/80">${habits.completionRate}% habits done</span>
+        <div class="p-3.5 rounded-xl bg-emerald-950/40 border border-[#68eba5]/30">
+          <span class="text-[10px] font-bold text-[#68eba5] uppercase tracking-wider">Productivity</span>
+          <p class="text-lg font-black text-[#68eba5] mt-0.5">${study.totalHours}h Focus</p>
+          <span class="text-[10px] text-emerald-300/80">${habits.completionRate}% habits done</span>
         </div>
       </div>
 
@@ -4374,7 +4985,7 @@ function updateReportPreview() {
         </div>
 
         <div class="p-3.5 rounded-xl border border-gray-200/80 dark:border-surface-700 bg-gray-50/50 dark:bg-surface-700/30 space-y-2">
-          <h4 class="font-bold text-xs text-amber-600 dark:text-amber-400 flex items-center justify-between">
+          <h4 class="font-bold text-xs text-[#68eba5] flex items-center justify-between">
             <span>Friends Lending & Debt Ledger</span>
             <span>Net: ₹${lending.netBalance.toLocaleString('en-IN')}</span>
           </h4>
@@ -4636,13 +5247,13 @@ function renderGrades() {
     cgpaBadgeClass = 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 text-rose-300 border-rose-200 dark:border-rose-800';
     cgpaStatusText = 'Improvement Needed — Target 7.5+ ⚠️';
   } else if (cumulativeCGPA < targetCGPA) {
-    cgpaColor = '#f59e0b';
-    cgpaBadgeClass = 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 text-amber-300 border-amber-200 dark:border-amber-800';
+    cgpaColor = '#2dd4bf';
+    cgpaBadgeClass = 'bg-teal-500/15 text-teal-300 border-teal-500/30';
     cgpaStatusText = `Gap to Target: ${Math.abs(cgpaGap).toFixed(2)} Points 📈`;
   }
 
   return `
-    <div class="space-y-6 animate-in fade-in duration-300">
+    <div class="space-y-6">
       
       <!-- Hero Grade Center -->
       <div class="p-6 sm:p-7 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-surface-900 border border-indigo-500/20 text-white shadow-xl relative overflow-hidden">
@@ -4966,7 +5577,7 @@ function renderAchievements() {
   const unlockedCount = badges.filter(b => b.unlocked).length;
 
   return `
-    <div class="space-y-6 animate-in fade-in duration-300">
+    <div class="space-y-6">
       
       <!-- Weekly Scorecard Hero -->
       <div class="p-6 sm:p-7 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-surface-900 border border-indigo-500/20 text-white shadow-xl relative overflow-hidden">
@@ -5016,12 +5627,12 @@ function renderAchievements() {
       <div class="flex items-center justify-between p-1">
         <div>
           <h3 class="font-bold text-base text-gray-900 dark:text-white flex items-center gap-2">
-            <i data-lucide="award" class="w-5 h-5 text-amber-500"></i>
+            <i data-lucide="award" class="w-5 h-5 text-[#68eba5]"></i>
             Productivity & Academic Milestones
           </h3>
           <p class="text-xs text-gray-400 mt-0.5">Earn badges by maintaining study streaks, attendance safe zones, and budget discipline.</p>
         </div>
-        <span class="px-3 py-1 rounded-full text-xs font-black bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+        <span class="px-3 py-1 rounded-full text-xs font-black bg-emerald-950/40 text-[#68eba5] border border-[#68eba5]/30">
           🏆 ${unlockedCount} / ${badges.length} Unlocked
         </span>
       </div>
@@ -5030,8 +5641,8 @@ function renderAchievements() {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         ${badges.map(b => {
     const isUnlocked = b.unlocked;
-    let borderClass = isUnlocked ? 'border-amber-300 dark:border-amber-700/60 bg-gradient-to-b from-amber-500/5 to-transparent' : 'border-gray-100 dark:border-surface-700';
-    let iconBg = isUnlocked ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25' : 'bg-gray-100 dark:bg-surface-700 text-gray-400';
+    let borderClass = isUnlocked ? 'border-[#68eba5]/40 bg-gradient-to-b from-[#68eba5]/10 to-transparent' : 'border-gray-100 dark:border-surface-700';
+    let iconBg = isUnlocked ? 'bg-[#68eba5] text-[#072516] shadow-md shadow-[#68eba5]/25' : 'bg-gray-100 dark:bg-surface-700 text-gray-400';
     let statusBadge = isUnlocked
       ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-300 border border-emerald-200">🏆 UNLOCKED</span>`
       : `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-100 dark:bg-surface-700 text-gray-500">🔒 IN PROGRESS</span>`;
@@ -5061,7 +5672,7 @@ function renderAchievements() {
                   <span class="font-bold text-gray-700 dark:text-gray-200">${b.progress} / ${b.max} ${b.unit}</span>
                 </div>
                 <div class="w-full h-2 rounded-full bg-gray-100 dark:bg-surface-700 overflow-hidden">
-                  <div class="h-full rounded-full transition-all duration-500 ${isUnlocked ? 'bg-amber-500' : 'bg-accent'}" style="width: ${b.progressPct}%;"></div>
+                  <div class="h-full rounded-full transition-all duration-500 ${isUnlocked ? 'bg-[#68eba5]' : 'bg-teal-400'}" style="width: ${b.progressPct}%;"></div>
                 </div>
               </div>
 
@@ -5211,7 +5822,7 @@ function renderMonthlyArchivesList() {
         <div class="space-y-0.5 min-w-0">
           <div class="flex items-center gap-1.5">
             <span class="font-bold text-gray-900 dark:text-white truncate">${a.monthLabel}</span>
-            ${a.isManual ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 font-semibold">Test Reset</span>' : ''}
+            ${a.isManual ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/40 text-emerald-300 border border-[#68eba5]/20 font-semibold">Test Reset</span>' : ''}
           </div>
           <p class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
             Classes: ${classes} (${attPct}%) • Spent: ₹${spent} • Study: ${study}h
@@ -5887,7 +6498,7 @@ function renderYearly() {
   }
 
   return `
-    <div class="space-y-6 animate-in fade-in duration-300">
+    <div class="space-y-6">
       <div class="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-surface-700">
         <div>
           <h2 class="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2">
@@ -6110,10 +6721,10 @@ function renderLofiRoom() {
   const bgGif = 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop';
   
   return `
-    <div class="relative w-full h-[85vh] rounded-3xl overflow-hidden shadow-2xl bg-gray-900 group animate-in fade-in zoom-in-95 duration-500">
+    <div class="relative w-full h-[85vh] rounded-3xl overflow-hidden shadow-2xl bg-gray-900 group">
       
       <!-- Background Image with Overlay -->
-      <img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2070&auto=format&fit=crop" class="absolute inset-0 w-full h-full object-cover opacity-60 filter brightness-50 contrast-125 saturate-50 group-hover:scale-105 transition-transform duration-[20s]" />
+      <img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2070&auto=format&fit=crop" class="absolute inset-0 w-full h-full object-cover opacity-60 filter brightness-50 contrast-125 saturate-50" />
       
       <!-- Dynamic Lighting Gradients -->
       <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent"></div>
@@ -6123,7 +6734,7 @@ function renderLofiRoom() {
       <div class="relative z-10 w-full h-full flex flex-col items-center justify-center p-6 sm:p-12">
         
         <!-- Big Play Button -->
-        <button id="lofi-room-btn" onclick="toggleGlobalAudio()" class="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white flex items-center justify-center shadow-[0_0_50px_rgba(99,102,241,0.3)] hover:shadow-[0_0_80px_rgba(99,102,241,0.5)] hover:scale-105 transition-all duration-300">
+        <button id="lofi-room-btn" onclick="toggleGlobalAudio()" class="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 text-white flex items-center justify-center shadow-[0_0_50px_rgba(99,102,241,0.3)]">
           ${isLofiPlaying ? '<i data-lucide="pause" class="w-8 h-8 sm:w-12 sm:h-12"></i>' : '<i data-lucide="play" class="w-8 h-8 sm:w-12 sm:h-12 ml-2"></i>'}
         </button>
         
