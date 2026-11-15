@@ -2630,9 +2630,10 @@ function renderStudyRoutineSection() {
               <div class="flex-1 min-w-0">
                 <div class="flex flex-wrap items-center gap-2 mb-1">
                   <span class="text-[11px] font-bold px-2 py-0.5 rounded-md border ${colorClass}">${slot.subject}</span>
-                  <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-950/40 text-emerald-300 border border-[#68eba5]/30 shadow-xs">
+                  <span onclick="editStudySlot('${slot.id}')" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-950/40 text-emerald-300 border border-[#68eba5]/30 shadow-xs cursor-pointer hover:border-accent hover:text-white transition-all" title="Click to change time slot">
                     <span>${periodEmojis[slot.period] || '🕒'}</span>
                     <span>${slot.time || (slot.duration + 'm')}</span>
+                    <i data-lucide="clock" class="w-3 h-3 text-accent"></i>
                   </span>
                   ${isDone ? '<span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded">✓ Done</span>' : ''}
                 </div>
@@ -2646,11 +2647,14 @@ function renderStudyRoutineSection() {
                 ` : ''}
               </div>
 
-              <!-- Actions: Start Focus & Delete -->
+              <!-- Actions: Start Focus, Edit & Delete -->
               <div class="flex items-center gap-1.5">
                 <button onclick="startFocusForSlot('${slot.subject.replace(/'/g, "\\'")}', ${slot.duration || 25})" class="p-1.5 rounded-lg bg-accent/10 hover:bg-accent text-accent hover:text-white transition-all text-xs font-medium flex items-center gap-1" title="Start Focus Session with Pomodoro">
                   <i data-lucide="play" class="w-3.5 h-3.5"></i>
                   <span class="hidden xl:inline text-[11px]">Focus</span>
+                </button>
+                <button onclick="editStudySlot('${slot.id}')" class="p-1.5 rounded-lg bg-surface-700 hover:bg-accent text-gray-300 hover:text-white transition-all" title="Change Time Slot">
+                  <i data-lucide="clock" class="w-3.5 h-3.5"></i>
                 </button>
                 <button onclick="deleteStudySlot('${slot.id}')" class="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all" title="Remove study slot">
                   <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
@@ -2688,9 +2692,87 @@ function deleteStudySlot(id) {
   }
 }
 
+function setStudySlotTimes(start, end, period) {
+  const s = document.getElementById('slot-modal-start-time');
+  const e = document.getElementById('slot-modal-end-time');
+  const p = document.getElementById('slot-modal-period');
+  if (s) s.value = start;
+  if (e) e.value = end;
+  if (p && period) p.value = period;
+  autoCalcDuration('slot-modal-start-time', 'slot-modal-end-time', 'slot-modal-duration');
+}
+
 function openAddStudySlotModal() {
+  const editIdEl = document.getElementById('slot-modal-edit-id');
+  if (editIdEl) editIdEl.value = '';
+  const title = document.getElementById('slot-modal-title');
+  if (title) title.innerText = '📚 Add Study Routine Slot';
+  const submitText = document.getElementById('slot-modal-submit-text');
+  if (submitText) submitText.innerText = 'Add to Routine';
+
+  document.getElementById('slot-modal-subject').value = '';
+  document.getElementById('slot-modal-topic').value = '';
+  document.getElementById('slot-modal-start-time').value = '06:30';
+  document.getElementById('slot-modal-end-time').value = '08:00';
+  document.getElementById('slot-modal-duration').value = '90';
+  clearDayCheckboxes('slot-modal-days');
+
   const m = document.getElementById('study-slot-modal');
   if (m) m.classList.remove('hidden');
+  lucide.createIcons();
+}
+
+function editStudySlot(id) {
+  const all = getStudyRoutine();
+  const slot = all.find(s => s.id === id);
+  if (!slot) return;
+
+  const m = document.getElementById('study-slot-modal');
+  if (!m) return;
+
+  const editIdEl = document.getElementById('slot-modal-edit-id');
+  if (editIdEl) editIdEl.value = id;
+  const title = document.getElementById('slot-modal-title');
+  if (title) title.innerText = '🕒 Change Study Time Slot';
+  const submitText = document.getElementById('slot-modal-submit-text');
+  if (submitText) submitText.innerText = 'Save Time Slot';
+
+  document.getElementById('slot-modal-subject').value = slot.subject || '';
+  document.getElementById('slot-modal-topic').value = slot.topic || '';
+
+  // Parse time if format "HH:MM AM - HH:MM PM"
+  if (slot.time && slot.time.includes('-')) {
+    const [startPart, endPart] = slot.time.split('-').map(s => s.trim());
+    const parse12hTo24h = (str) => {
+      const match = str.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (!match) return '';
+      let h = parseInt(match[1]);
+      const min = match[2];
+      const ampm = (match[3] || 'AM').toUpperCase();
+      if (ampm === 'PM' && h < 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+      return `${String(h).padStart(2, '0')}:${min}`;
+    };
+    const s24 = parse12hTo24h(startPart);
+    const e24 = parse12hTo24h(endPart);
+    if (s24) document.getElementById('slot-modal-start-time').value = s24;
+    if (e24) document.getElementById('slot-modal-end-time').value = e24;
+  }
+
+  document.getElementById('slot-modal-duration').value = slot.duration || 60;
+  document.getElementById('slot-modal-period').value = slot.period || 'Morning';
+
+  clearDayCheckboxes('slot-modal-days');
+  if (slot.days && Array.isArray(slot.days)) {
+    const container = document.getElementById('slot-modal-days');
+    if (container) {
+      container.querySelectorAll('input[type="checkbox"]').forEach(c => {
+        if (slot.days.includes(c.value)) c.checked = true;
+      });
+    }
+  }
+
+  m.classList.remove('hidden');
   lucide.createIcons();
 }
 
@@ -2700,17 +2782,28 @@ function closeAddStudySlotModal() {
 }
 
 function saveModalStudySlot() {
-  const subject = document.getElementById('slot-modal-subject')?.value.trim();
-  const topic = document.getElementById('slot-modal-topic')?.value.trim();
-  const startTime = document.getElementById('slot-modal-start-time')?.value || '';
-  const endTime = document.getElementById('slot-modal-end-time')?.value || '';
-  const time = (startTime && endTime) ? formatTimeRange(startTime, endTime) : '';
+  const editId = document.getElementById('slot-modal-edit-id')?.value;
+  const subject = document.getElementById('slot-modal-subject')?.value.trim() || 'Self Study';
+  const topic = document.getElementById('slot-modal-topic')?.value.trim() || 'Study Session';
+  const startTime = document.getElementById('slot-modal-start-time')?.value || '06:30';
+  const endTime = document.getElementById('slot-modal-end-time')?.value || '08:00';
+  const time = (startTime && endTime) ? formatTimeRange(startTime, endTime) : '06:30 AM - 08:00 AM';
   const duration = parseInt(document.getElementById('slot-modal-duration')?.value) || 60;
   const period = document.getElementById('slot-modal-period')?.value || 'Morning';
   const days = getSelectedDays('slot-modal-days');
 
-  if (!subject || !topic) {
-    showToast('Please enter both subject and topic/goal', 'error');
+  if (editId) {
+    updateStudyRoutineSlot(editId, {
+      subject,
+      topic,
+      time: time || `${duration} min session`,
+      duration,
+      period,
+      days
+    });
+    closeAddStudySlotModal();
+    renderPage('study');
+    showToast('Study slot time updated successfully! ⏰', 'success');
     return;
   }
 

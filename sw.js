@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lifeflow-pwa-v1';
+const CACHE_NAME = 'lifeflow-pwa-v2';
 const ASSETS = [
   './',
   './index.html',

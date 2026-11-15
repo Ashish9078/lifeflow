@@ -1333,6 +1333,12 @@ function removeStudyRoutineSlot(id) {
   saveData(STORAGE_KEYS.studyRoutine, all);
 }
 
+function updateStudyRoutineSlot(id, updates) {
+  let all = getStudyRoutine();
+  all = all.map(s => s.id === id ? { ...s, ...updates } : s);
+  saveData(STORAGE_KEYS.studyRoutine, all);
+}
+
 function getStudyRoutineCompletion() {
   const routine = getStudyRoutine();
   const checks = getTodayStudyChecks();
