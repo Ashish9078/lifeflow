@@ -23,3 +23,6 @@ e2e_*.js
 audio/*.mp3
 audio/
 *.swo
+
+# Local Netlify folder
+.netlify
