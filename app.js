@@ -13,6 +13,63 @@ let pomodoroRunning = false;
 let pomodoroMode = 'work';
 let chartInstances = {};
 
+// ========== DATE/TIME HELPER UTILITIES ==========
+
+// Convert 24h time "HH:MM" to 12h "HH:MM AM/PM"
+function formatTime12h(time24) {
+  if (!time24) return '';
+  const [h, m] = time24.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+// Get current 24h "HH:MM" time string for <input type="time">
+function currentTimeStr() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+// Build "HH:MM AM - HH:MM PM" from two time inputs
+function formatTimeRange(start24, end24) {
+  return `${formatTime12h(start24)} - ${formatTime12h(end24)}`;
+}
+
+// Get checked day values from a checkbox container
+function getSelectedDays(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return [];
+  return Array.from(el.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.value);
+}
+
+// Clear all day checkboxes
+function clearDayCheckboxes(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+}
+
+// Auto-calculate duration when both start/end times change
+function autoCalcDuration(startId, endId, durationId) {
+  const start = document.getElementById(startId)?.value;
+  const end = document.getElementById(endId)?.value;
+  if (start && end) {
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff < 0) diff += 24 * 60; // overnight
+    const dur = document.getElementById(durationId);
+    if (dur && diff > 0) dur.value = diff;
+  }
+}
+
+// Set default due date to 7 days from today
+function defaultDueDate() {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  return d.toISOString().slice(0, 10);
+}
+
 // ========== THEME ==========
 // Ensure dark luxury fintech theme (Vandale aesthetic) is active by default
 try {
@@ -2419,7 +2476,13 @@ function renderRoutine() {
               ${tasks.map(t => `
                 <div class="card p-4 flex items-center gap-4 group" id="routine-${t.id}">
                   <div class="routine-checkbox ${checks[t.id] ? 'checked' : ''}" onclick="toggleRoutineCheck('${t.id}')"></div>
-                  <span class="flex-1 text-sm ${checks[t.id] ? 'line-through text-gray-400' : ''} transition-all">${t.name}</span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-sm font-medium ${checks[t.id] ? 'line-through text-gray-400' : ''} transition-all">${t.name}</span>
+                      ${t.time ? `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-950/40 text-emerald-300 border border-[#68eba5]/30">🕒 ${t.time}</span>` : ''}
+                    </div>
+                    ${t.days && t.days.length && t.days.length < 7 ? `<div class="flex flex-wrap gap-1 mt-1">${t.days.map(d => `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-surface-700/80 text-gray-400 border border-white/5">${d}</span>`).join('')}</div>` : ''}
+                  </div>
                   <button onclick="deleteRoutineTask('${t.id}')" class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-gray-400 hover:text-danger transition-all">
                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                   </button>
@@ -2576,6 +2639,11 @@ function renderStudyRoutineSection() {
                 <h5 class="text-sm font-semibold text-gray-800 dark:text-gray-200 ${isDone ? 'line-through text-gray-400 dark:text-gray-500' : ''}">
                   ${slot.topic}
                 </h5>
+                ${slot.days && slot.days.length && slot.days.length < 7 ? `
+                  <div class="flex flex-wrap gap-1 mt-1.5">
+                    ${slot.days.map(d => `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-surface-700/80 text-gray-400 border border-white/5">${d}</span>`).join('')}
+                  </div>
+                ` : ''}
               </div>
 
               <!-- Actions: Start Focus & Delete -->
@@ -2634,9 +2702,12 @@ function closeAddStudySlotModal() {
 function saveModalStudySlot() {
   const subject = document.getElementById('slot-modal-subject')?.value.trim();
   const topic = document.getElementById('slot-modal-topic')?.value.trim();
-  const time = document.getElementById('slot-modal-time')?.value.trim();
+  const startTime = document.getElementById('slot-modal-start-time')?.value || '';
+  const endTime = document.getElementById('slot-modal-end-time')?.value || '';
+  const time = (startTime && endTime) ? formatTimeRange(startTime, endTime) : '';
   const duration = parseInt(document.getElementById('slot-modal-duration')?.value) || 60;
   const period = document.getElementById('slot-modal-period')?.value || 'Morning';
+  const days = getSelectedDays('slot-modal-days');
 
   if (!subject || !topic) {
     showToast('Please enter both subject and topic/goal', 'error');
@@ -2649,13 +2720,16 @@ function saveModalStudySlot() {
     topic,
     time: time || `${duration} min session`,
     duration,
-    period
+    period,
+    days
   });
 
   closeAddStudySlotModal();
   document.getElementById('slot-modal-subject').value = '';
   document.getElementById('slot-modal-topic').value = '';
-  document.getElementById('slot-modal-time').value = '';
+  document.getElementById('slot-modal-start-time').value = '06:30';
+  document.getElementById('slot-modal-end-time').value = '08:00';
+  clearDayCheckboxes('slot-modal-days');
   renderPage('study');
   showToast('New study slot added to your routine! 📚', 'success');
 }
@@ -2663,9 +2737,12 @@ function saveModalStudySlot() {
 function saveQuickStudySlot() {
   const subject = document.getElementById('qa-slot-subject')?.value.trim();
   const topic = document.getElementById('qa-slot-topic')?.value.trim();
-  const time = document.getElementById('qa-slot-time')?.value.trim();
+  const startTime = document.getElementById('qa-slot-start-time')?.value || '';
+  const endTime = document.getElementById('qa-slot-end-time')?.value || '';
+  const time = (startTime && endTime) ? formatTimeRange(startTime, endTime) : '';
   const duration = parseInt(document.getElementById('qa-slot-duration')?.value) || 60;
   const period = document.getElementById('qa-slot-period')?.value || 'Morning';
+  const days = getSelectedDays('qa-slot-days');
 
   if (!subject || !topic) {
     showToast('Please enter both subject and topic/goal', 'error');
@@ -2678,13 +2755,16 @@ function saveQuickStudySlot() {
     topic,
     time: time || `${duration}m session`,
     duration,
-    period
+    period,
+    days
   });
 
   closeQuickAdd();
   document.getElementById('qa-slot-subject').value = '';
   document.getElementById('qa-slot-topic').value = '';
-  document.getElementById('qa-slot-time').value = '';
+  document.getElementById('qa-slot-start-time').value = '06:30';
+  document.getElementById('qa-slot-end-time').value = '08:00';
+  clearDayCheckboxes('qa-slot-days');
   if (currentPage === 'study' || currentPage === 'dashboard') {
     renderPage(currentPage);
   }
@@ -3408,6 +3488,8 @@ function openAddIncomeModal() {
   if (m) m.classList.remove('hidden');
   const d = document.getElementById('income-modal-date');
   if (d) d.value = todayStr();
+  const t = document.getElementById('income-modal-time');
+  if (t) t.value = currentTimeStr();
   const amt = document.getElementById('income-modal-amount');
   if (amt) {
     amt.value = '';
@@ -3435,6 +3517,7 @@ function saveIncomeFromModal() {
   const payment = document.getElementById('income-modal-payment')?.value || 'UPI';
   const desc = document.getElementById('income-modal-desc')?.value.trim();
   const date = document.getElementById('income-modal-date')?.value || todayStr();
+  const time = document.getElementById('income-modal-time')?.value || currentTimeStr();
 
   if (!amount || amount <= 0) {
     showToast('Please enter a valid amount', 'error');
@@ -3451,7 +3534,8 @@ function saveIncomeFromModal() {
     source,
     payment,
     description: desc,
-    date
+    date,
+    time: formatTime12h(time)
   });
 
   closeAddIncomeModal();
@@ -3571,7 +3655,14 @@ function toggleMilestone(goalId, milestoneId) {
 }
 
 function showAddGoal() {
-  document.getElementById('add-goal-form').classList.remove('hidden');
+  const form = document.getElementById('add-goal-form');
+  if (form) form.classList.remove('hidden');
+  const due = document.getElementById('goal-due');
+  if (due && !due.value) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 1);
+    due.value = d.toISOString().slice(0, 10);
+  }
 }
 function hideAddGoal() {
   document.getElementById('add-goal-form').classList.add('hidden');
@@ -3926,10 +4017,26 @@ function openQuickAdd() {
   modal.classList.remove('hidden');
   modal.classList.add('show');
   const today = todayStr();
+  const cTime = currentTimeStr();
+
+  const incDate = document.getElementById('qa-income-date');
+  const incTime = document.getElementById('qa-income-time');
+  if (incDate) incDate.value = today;
+  if (incTime) incTime.value = cTime;
+
   const expDate = document.getElementById('qa-expense-date');
-  const studyDate = document.getElementById('qa-study-date');
+  const expTime = document.getElementById('qa-expense-time');
   if (expDate) expDate.value = today;
+  if (expTime) expTime.value = cTime;
+
+  const studyDate = document.getElementById('qa-study-date');
+  const studyTime = document.getElementById('qa-study-time');
   if (studyDate) studyDate.value = today;
+  if (studyTime) studyTime.value = cTime;
+
+  const routineClock = document.getElementById('qa-routine-clock');
+  if (routineClock && !routineClock.value) routineClock.value = cTime;
+
   lucide.createIcons();
 }
 
@@ -3952,6 +4059,7 @@ function saveIncome() {
   const payment = document.getElementById('qa-income-payment')?.value || 'UPI';
   const desc = document.getElementById('qa-income-desc')?.value.trim();
   const date = document.getElementById('qa-income-date')?.value || todayStr();
+  const time = document.getElementById('qa-income-time')?.value || currentTimeStr();
 
   if (!amount || amount <= 0) {
     showToast('Enter a valid amount', 'error');
@@ -3968,7 +4076,8 @@ function saveIncome() {
     source,
     payment,
     description: desc,
-    date
+    date,
+    time: formatTime12h(time)
   });
 
   closeQuickAdd();
@@ -3985,12 +4094,21 @@ function saveExpense() {
   const category = document.getElementById('qa-expense-category').value;
   const payment = document.getElementById('qa-expense-payment').value;
   const desc = document.getElementById('qa-expense-desc').value.trim();
-  const date = document.getElementById('qa-expense-date').value;
+  const date = document.getElementById('qa-expense-date').value || todayStr();
+  const time = document.getElementById('qa-expense-time')?.value || currentTimeStr();
 
   if (!amount || amount <= 0) { showToast('Enter a valid amount', 'error'); return; }
   if (!desc) { showToast('Enter a description', 'error'); return; }
 
-  addExpenseEntry({ id: uid(), amount, category, payment, description: desc, date: date || todayStr() });
+  addExpenseEntry({
+    id: uid(),
+    amount,
+    category,
+    payment,
+    description: desc,
+    date,
+    time: formatTime12h(time)
+  });
   closeQuickAdd();
   showToast('Expense saved!', 'success');
   if (currentPage === 'expense' || currentPage === 'dashboard') renderPage(currentPage);
@@ -4002,29 +4120,46 @@ function saveStudySession() {
   const subject = document.getElementById('qa-study-subject').value.trim();
   const topic = document.getElementById('qa-study-topic').value.trim();
   const duration = parseInt(document.getElementById('qa-study-duration').value);
-  const date = document.getElementById('qa-study-date').value;
+  const date = document.getElementById('qa-study-date').value || todayStr();
+  const time = document.getElementById('qa-study-time')?.value || currentTimeStr();
   const notes = document.getElementById('qa-study-notes').value.trim();
 
   if (!subject) { showToast('Enter a subject', 'error'); return; }
   if (!duration || duration <= 0) { showToast('Enter a valid duration', 'error'); return; }
 
-  addStudySession({ id: uid(), subject, topic: topic || 'General', duration, date: date || todayStr(), notes });
+  addStudySession({
+    id: uid(),
+    subject,
+    topic: topic || 'General',
+    duration,
+    date,
+    time: formatTime12h(time),
+    notes
+  });
   closeQuickAdd();
   showToast('Study session logged!', 'success');
   if (currentPage === 'study' || currentPage === 'dashboard') renderPage(currentPage);
   document.getElementById('qa-study-subject').value = '';
   document.getElementById('qa-study-topic').value = '';
-  document.getElementById('qa-study-duration').value = '';
+  document.getElementById('qa-study-duration').value = '25';
   document.getElementById('qa-study-notes').value = '';
 }
 
 function saveRoutineTask() {
   const name = document.getElementById('qa-routine-name').value.trim();
   const period = document.getElementById('qa-routine-time').value;
+  const clock = document.getElementById('qa-routine-clock')?.value || '07:00';
+  const days = getSelectedDays('qa-routine-days');
 
   if (!name) { showToast('Enter a task name', 'error'); return; }
 
-  addRoutineTask({ id: uid(), name, period });
+  addRoutineTask({
+    id: uid(),
+    name,
+    period,
+    time: formatTime12h(clock),
+    days: days.length ? days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  });
   closeQuickAdd();
   showToast('Routine task added!', 'success');
   if (currentPage === 'routine') renderPage('routine');
@@ -4643,6 +4778,8 @@ function openAddUdharModal() {
   if (m) m.classList.remove('hidden');
   const d = document.getElementById('udhar-date');
   if (d) d.value = todayStr();
+  const due = document.getElementById('udhar-due-date');
+  if (due) due.value = defaultDueDate();
   setUdharModalType('gave');
   lucide.createIcons();
 }
